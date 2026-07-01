@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api, type DashboardSnapshot, type LedgerBalance } from '../api'
+import { formatPkr, MoneyLabel } from '../money'
 
 // Issue #16 — the real Dashboard: the two hero pillars (Cash in Hand, True
 // Shop Value — ADR-0010), the 7 ledgers as colour-coded chips, a
@@ -20,37 +21,6 @@ const LEDGER_STYLE: Record<string, { label: string; bg: string; fg: string }> = 
   pakka: { label: 'Pakka (Buyers)', bg: '#e6f0fb', fg: '#1a5ca8' },
   revenue: { label: 'Amdani (Revenue)', bg: '#e9f7f0', fg: '#1c7d5a' },
   government: { label: 'Government (Cess)', bg: '#f3ecfa', fg: '#6a3fa0' },
-}
-
-// Ledgers that represent a two-party relationship (a balance that is either
-// owed *to* the shop or owed *by* the shop) get the "owes you"/"you owe"
-// treatment (ADR-0010 sign model: negative = receivable/asset, positive =
-// liability). Rokar/revenue/government are the shop's own pools, not a
-// counterparty balance, so they get a neutral magnitude label instead.
-const COUNTERPARTY_KINDS = new Set(['zamindar', 'pakka', 'thekedar', 'beopari'])
-
-function formatPkr(amount: number): string {
-  return `PKR ${Math.abs(amount).toLocaleString('en-PK')}`
-}
-
-function MoneyLabel({ kind, balance }: { kind: string; balance: number }) {
-  if (COUNTERPARTY_KINDS.has(kind)) {
-    if (balance === 0) return <span style={{ color: '#666' }}>settled — {formatPkr(0)}</span>
-    const owesYou = balance < 0
-    return (
-      <span style={{ color: owesYou ? '#1e7a34' : '#a53434', fontWeight: 600 }}>
-        {formatPkr(balance)} {owesYou ? '· owes you' : '· you owe'}
-      </span>
-    )
-  }
-  if (kind === 'government') {
-    return (
-      <span style={{ color: balance > 0 ? '#a53434' : '#666', fontWeight: 600 }}>
-        {formatPkr(balance)} {balance > 0 ? '· held for govt' : ''}
-      </span>
-    )
-  }
-  return <span style={{ fontWeight: 600 }}>{formatPkr(balance)}</span>
 }
 
 function LedgerChip({ ledger }: { ledger: LedgerBalance }) {
@@ -107,6 +77,9 @@ export function Dashboard() {
           <span style={{ marginRight: '1rem' }}>
             {user?.name} ({user?.role})
           </span>
+          <Link to="/contacts" style={{ marginRight: '1rem' }}>
+            Contacts
+          </Link>
           {user?.role === 'owner' && (
             <Link to="/users" style={{ marginRight: '1rem' }}>
               Manage users

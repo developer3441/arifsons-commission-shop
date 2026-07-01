@@ -85,6 +85,21 @@ export interface DashboardSnapshot {
   ledgers: LedgerBalance[]
 }
 
+export type ContactKind = 'zamindar' | 'pakka' | 'thekedar'
+export type CostBearer = 'farmer' | 'buyer'
+
+export interface ContactRecord {
+  id: string
+  kind: ContactKind
+  name?: string
+  commissionRate?: number
+  buyerCommissionRate?: number
+  bagBearer?: CostBearer
+  labourBearer?: CostBearer
+  kattKgPerBag?: number
+  balance: number
+}
+
 export interface UserRecord {
   id: string
   name: string
@@ -101,6 +116,20 @@ export const api = {
     post<{ entryId: string }>('/advances', { entryId, farmerId, amount }),
   balanceOf: (id: string) => get<Balance>(`/accounts/${id}/balance`),
   dashboard: () => get<DashboardSnapshot>('/dashboard'),
+
+  upsertContact: (input: {
+    id: string
+    kind: ContactKind
+    name?: string
+    commissionRate?: number
+    buyerCommissionRate?: number
+    bagBearer?: CostBearer
+    labourBearer?: CostBearer
+    kattKgPerBag?: number
+  }) => post<ContactRecord>('/contacts', input),
+  listContacts: (kind: ContactKind, q?: string) =>
+    get<ContactRecord[]>(`/contacts?kind=${kind}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+  getContact: (id: string) => get<ContactRecord>(`/contacts/${id}`),
 
   login: (username: string, password: string) =>
     post<{ token: string; user: CurrentUser }>('/auth/login', { username, password }, false),

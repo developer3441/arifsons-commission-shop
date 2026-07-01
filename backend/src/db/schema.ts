@@ -6,7 +6,7 @@
 // directly (ADR-0010).
 
 import { sql } from 'drizzle-orm'
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 
 /**
  * Shop staff — the only logins (ADR-0020). Farmers/buyers/contractors are
@@ -25,10 +25,28 @@ export const users = sqliteTable('users', {
     .default(sql`(unixepoch())`),
 })
 
+/**
+ * Farmers (Zamindar), buyers (Pakka), and contractors (Thekedar) as customer
+ * accounts (ADR-0007), plus the singleton Rokar/revenue/government/house
+ * accounts. The override columns are all nullable -- per-customer overrides
+ * on commission/cost-bearer/Katt (ADR-0001/0003/0012, issue #17). Precedence
+ * is enforced in the domain layer (trade.ts): per-invoice > per-customer >
+ * global default; these columns feed the "per-customer" tier only.
+ */
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),
   name: text('name'),
+  // Zamindar-only: overrides TradeConfig.farmerCommissionRate for this farmer.
+  commissionRate: real('commission_rate'),
+  // Pakka-only: overrides TradeConfig.buyerCommissionRate for this buyer.
+  buyerCommissionRate: real('buyer_commission_rate'),
+  // Zamindar-only: overrides TradeConfig.bagBearer for this farmer.
+  bagBearer: text('bag_bearer'), // 'farmer' | 'buyer'
+  // Zamindar-only: overrides TradeConfig.labourBearer for this farmer.
+  labourBearer: text('labour_bearer'), // 'farmer' | 'buyer'
+  // Zamindar-only: overrides TradeConfig.kattKgPerBag for this farmer.
+  kattKgPerBag: real('katt_kg_per_bag'),
 })
 
 export const entries = sqliteTable('entries', {

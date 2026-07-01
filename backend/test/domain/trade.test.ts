@@ -201,6 +201,26 @@ describe('both-side commission and configurable cost bearer (issue #6)', () => {
     expect(buyerInvoices[0]!.labourCharge).toBe(2_000)
   })
 
+  it('per-customer farmer commission override beats the global default (issue #17)', () => {
+    const cfg: TradeConfig = { ...baseConfig, customerFarmerCommissionRate: { 'farmer-ali': 0.05 } }
+    const { farmerBill } = postTradeEntry(entry, cfg)
+    // 5% of 200,000 = 10,000 (vs. the global 2% = 4,000)
+    expect(farmerBill.commission).toBe(10_000)
+  })
+
+  it('per-customer buyer commission override beats the global default (issue #17)', () => {
+    const cfg: TradeConfig = { ...baseConfig, customerBuyerCommissionRate: { 'buyer-mill': 0.03 } }
+    const { buyerInvoices } = postTradeEntry(entry, cfg)
+    // 3% of 200,000 = 6,000 (vs. the global 0)
+    expect(buyerInvoices[0]!.commission).toBe(6_000)
+  })
+
+  it('a per-customer commission override for a different customer does not apply', () => {
+    const cfg: TradeConfig = { ...baseConfig, customerFarmerCommissionRate: { 'someone-else': 0.05 } }
+    const { farmerBill } = postTradeEntry(entry, cfg)
+    expect(farmerBill.commission).toBe(4_000) // global 2% still applies
+  })
+
   it('every combination still balances to zero (farmer- and buyer-borne, both charges, both commissions)', () => {
     const cfg: TradeConfig = {
       farmerCommissionRate: 0.02,

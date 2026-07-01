@@ -67,6 +67,10 @@ export interface TradeConfig {
   customerBagBearer?: Readonly<Record<string, CostBearer>>
   /** Per-customer labour-bearer override, keyed by farmerId. Middling precedence. */
   customerLabourBearer?: Readonly<Record<string, CostBearer>>
+  /** Per-customer farmer commission override, keyed by farmerId (issue #17). Middling precedence. */
+  customerFarmerCommissionRate?: Readonly<Record<string, number>>
+  /** Per-customer buyer commission override, keyed by buyerId (issue #17). Middling precedence. */
+  customerBuyerCommissionRate?: Readonly<Record<string, number>>
 }
 
 /** The farmer's Kacha bill — one bill for the whole lot, summed across every line. */
@@ -137,8 +141,10 @@ function computeLine(entry: TradeEntry, line: SaleLine, config: TradeConfig): Li
 
   const maunds = payableMaunds(line.bags, katt)
   const saleValue = roundToPkr(maunds * line.ratePerMaund)
-  const farmerCommission = roundToPkr(saleValue * config.farmerCommissionRate)
-  const buyerCommission = roundToPkr(saleValue * config.buyerCommissionRate)
+  const farmerCommissionRate = config.customerFarmerCommissionRate?.[entry.farmerId] ?? config.farmerCommissionRate
+  const buyerCommissionRate = config.customerBuyerCommissionRate?.[line.buyerId] ?? config.buyerCommissionRate
+  const farmerCommission = roundToPkr(saleValue * farmerCommissionRate)
+  const buyerCommission = roundToPkr(saleValue * buyerCommissionRate)
   const labour = roundToPkr(line.bags.length * config.perBagLabour)
   const bagCharge = roundToPkr(line.bags.length * config.perBagCharge)
   const cess = roundToPkr(saleValue * config.cessRate)

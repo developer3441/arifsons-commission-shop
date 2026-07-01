@@ -9,10 +9,11 @@
 // (ADR-0021) uses the entry's own id as the key: recordEntry is a no-op if
 // that id was already persisted.
 
-import { eq, sql, asc } from 'drizzle-orm'
+import { eq, sql, asc, and, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from './schema'
 import type { Account, Entry, Posting, LedgerKind, EntryKind } from '../domain/posting'
+import type { CostBearer } from '../domain/trade'
 import { type PKR, pkr } from '../domain/money'
 import type { ChangeLogRow } from '../domain/corrections'
 import { hashPassword } from '../auth/password'
@@ -145,6 +146,83 @@ export class Repository {
   async accountsByKind(kind: LedgerKind): Promise<Account[]> {
     const rows = await this.db.select().from(schema.accounts).where(eq(schema.accounts.kind, kind))
     return rows.map((r) => ({ id: r.id, kind: r.kind as LedgerKind, name: r.name ?? undefined }))
+  }
+
+  /**
+   * Create or edit a Contact (farmer/buyer/contractor, issue #17): the account
+   * plus its optional per-customer overrides (ADR-0001/0003/0012). Upsert on
+   * id so the same form serves both create and edit.
+   */
+  async upsertContact(input: {
+    id: string
+    kind: LedgerKind
+    name?: string
+    commissionRate?: number
+    buyerCommissionRate?: number
+    bagBearer?: CostBearer
+    labourBearer?: CostBearer
+    kattKgPerBag?: number
+  }): Promise<void> {
+    const values = {
+      id: input.id,
+      kind: input.kind,
+      name: input.name ?? null,
+      commissionRate: input.commissionRate ?? null,
+      buyerCommissionRate: input.buyerCommissionRate ?? null,
+      bagBearer: input.bagBearer ?? null,
+      labourBearer: input.labourBearer ?? null,
+      kattKgPerBag: input.kattKgPerBag ?? null,
+    }
+    await this.db
+      .insert(schema.accounts)
+      .values(values)
+      .onConflictDoUpdate({ target: schema.accounts.id, set: values })
+  }
+
+  /** One contact, with its running balance (a projection of the posting stream). */
+  async getContact(id: string): Promise<ContactRecord | undefined> {
+    const rows = await this.db.select().from(schema.accounts).where(eq(schema.accounts.id, id)).limit(1)
+    const row = rows[0]
+    if (!row) return undefined
+    return { ...toContactRecord(row), balance: await this.balanceOf(id) }
+  }
+
+  /** Search contacts of one kind by name (case-insensitive substring) — the Contacts screen list. */
+  async listContacts(kind: LedgerKind, query?: string): Promise<ContactRecord[]> {
+    const conditions = [eq(schema.accounts.kind, kind)]
+    if (query) conditions.push(like(sql`lower(${schema.accounts.name})`, `%${query.toLowerCase()}%`))
+    const rows = await this.db
+      .select()
+      .from(schema.accounts)
+      .where(and(...conditions))
+    return Promise.all(
+      rows.map(async (row) => ({ ...toContactRecord(row), balance: await this.balanceOf(row.id) })),
+    )
+  }
+}
+
+export interface ContactRecord {
+  id: string
+  kind: LedgerKind
+  name?: string
+  commissionRate?: number
+  buyerCommissionRate?: number
+  bagBearer?: CostBearer
+  labourBearer?: CostBearer
+  kattKgPerBag?: number
+  balance: PKR
+}
+
+function toContactRecord(row: typeof schema.accounts.$inferSelect): Omit<ContactRecord, 'balance'> {
+  return {
+    id: row.id,
+    kind: row.kind as LedgerKind,
+    name: row.name ?? undefined,
+    commissionRate: row.commissionRate ?? undefined,
+    buyerCommissionRate: row.buyerCommissionRate ?? undefined,
+    bagBearer: (row.bagBearer as CostBearer | null) ?? undefined,
+    labourBearer: (row.labourBearer as CostBearer | null) ?? undefined,
+    kattKgPerBag: row.kattKgPerBag ?? undefined,
   }
 }
 

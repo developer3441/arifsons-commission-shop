@@ -7,6 +7,7 @@ import { Users } from './screens/Users'
 import { IssueAdvance } from './screens/IssueAdvance'
 import { NewTrade } from './screens/NewTrade'
 import { RecordPayment } from './screens/RecordPayment'
+import { Contacts, ContactDetail } from './screens/Contacts'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -65,6 +66,22 @@ export function App() {
             element={
               <RequireAuth>
                 <RecordPayment />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <RequireAuth>
+                <Contacts />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/contacts/:id"
+            element={
+              <RequireAuth>
+                <ContactDetail />
               </RequireAuth>
             }
           />
