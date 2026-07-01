@@ -4,6 +4,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { swaggerUI } from '@hono/swagger-ui'
 import { ledger, type Bindings } from './routes/ledger'
+import { dashboard } from './routes/dashboard'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -16,10 +17,12 @@ const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AuthedVariables }>(
 app.use('/accounts/*', requireAuth)
 app.use('/rokar/*', requireAuth)
 app.use('/advances', requireAuth)
+app.use('/dashboard', requireAuth)
 
 app.route('/', ledger)
 app.route('/', auth)
 app.route('/', users)
+app.route('/', dashboard)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).

@@ -53,6 +53,38 @@ export interface CurrentUser {
   role: Role
 }
 
+export interface LedgerBalance {
+  kind: string
+  balance: number
+}
+
+export interface TrueShopValueBreakdown {
+  cash: number
+  buyerReceivables: number
+  farmerReceivables: number
+  godownValue: number
+  bardanaOutValue: number
+  farmerPayoutsOwed: number
+  outstandingLabour: number
+  cessHeld: number
+  total: number
+}
+
+export interface Reconciliation {
+  trueShopValue: number
+  expected: number
+  drift: number
+  reconciles: boolean
+}
+
+export interface DashboardSnapshot {
+  cashInHand: number
+  trueShopValue: number
+  breakdown: TrueShopValueBreakdown
+  reconciliation: Reconciliation
+  ledgers: LedgerBalance[]
+}
+
 export interface UserRecord {
   id: string
   name: string
@@ -68,6 +100,7 @@ export const api = {
   issueAdvance: (entryId: string, farmerId: string, amount: number) =>
     post<{ entryId: string }>('/advances', { entryId, farmerId, amount }),
   balanceOf: (id: string) => get<Balance>(`/accounts/${id}/balance`),
+  dashboard: () => get<DashboardSnapshot>('/dashboard'),
 
   login: (username: string, password: string) =>
     post<{ token: string; user: CurrentUser }>('/auth/login', { username, password }, false),

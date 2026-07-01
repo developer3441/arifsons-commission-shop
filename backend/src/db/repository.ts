@@ -12,7 +12,7 @@
 import { eq, sql, asc } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from './schema'
-import type { Account, Entry } from '../domain/posting'
+import type { Account, Entry, Posting, LedgerKind, EntryKind } from '../domain/posting'
 import { type PKR, pkr } from '../domain/money'
 import type { ChangeLogRow } from '../domain/corrections'
 import { hashPassword } from '../auth/password'
@@ -108,6 +108,43 @@ export class Repository {
       after: row.after === null ? null : JSON.stringify(row.after),
       actorUserId: row.actor,
     })
+  }
+
+  /**
+   * Rebuild the full immutable Entry stream from persisted postings
+   * (Issue #16) — the same shape the pure domain layer (posting.ts,
+   * dashboard.ts) folds over in-memory. Ordered by creation time so
+   * day-by-day/first-to-last semantics match how entries were recorded.
+   */
+  async allEntries(): Promise<Entry[]> {
+    const rows = await this.db
+      .select({
+        entryId: schema.postings.entryId,
+        kind: schema.entries.kind,
+        createdAt: schema.entries.createdAt,
+        accountId: schema.postings.accountId,
+        amount: schema.postings.amount,
+      })
+      .from(schema.postings)
+      .innerJoin(schema.entries, eq(schema.postings.entryId, schema.entries.id))
+      .orderBy(asc(schema.entries.createdAt))
+
+    const byId = new Map<string, { id: string; kind: EntryKind; postings: Posting[] }>()
+    for (const row of rows) {
+      let entry = byId.get(row.entryId)
+      if (!entry) {
+        entry = { id: row.entryId, kind: row.kind as EntryKind, postings: [] }
+        byId.set(row.entryId, entry)
+      }
+      entry.postings.push({ accountId: row.accountId, amount: pkr(row.amount) })
+    }
+    return [...byId.values()]
+  }
+
+  /** All registered accounts of one ledger kind — e.g. every Zamindar (farmer) account. */
+  async accountsByKind(kind: LedgerKind): Promise<Account[]> {
+    const rows = await this.db.select().from(schema.accounts).where(eq(schema.accounts.kind, kind))
+    return rows.map((r) => ({ id: r.id, kind: r.kind as LedgerKind, name: r.name ?? undefined }))
   }
 }
 

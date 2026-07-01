@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { Login } from './screens/Login'
 import { Dashboard } from './screens/Dashboard'
 import { Users } from './screens/Users'
+import { IssueAdvance } from './screens/IssueAdvance'
+import { NewTrade } from './screens/NewTrade'
+import { RecordPayment } from './screens/RecordPayment'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -39,6 +42,30 @@ export function App() {
               <RequireOwner>
                 <Users />
               </RequireOwner>
+            }
+          />
+          <Route
+            path="/advance"
+            element={
+              <RequireAuth>
+                <IssueAdvance />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/trade"
+            element={
+              <RequireAuth>
+                <NewTrade />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/payment"
+            element={
+              <RequireAuth>
+                <RecordPayment />
+              </RequireAuth>
             }
           />
         </Routes>
