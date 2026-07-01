@@ -36,7 +36,13 @@ export interface Posting {
   readonly amount: PKR
 }
 
-export type EntryKind = 'opening_balance' | 'peshi_advance' | 'trade'
+export type EntryKind =
+  | 'opening_balance'
+  | 'peshi_advance'
+  | 'trade'
+  | 'buyer_payment'
+  | 'farmer_withdrawal'
+  | 'contractor_payout'
 
 /**
  * One immutable event in the posting stream. Ledgers project from these;
@@ -58,6 +64,16 @@ export function rokarAccount(): Account {
 /** A farmer (Zamindar) account. */
 export function zamindarAccount(id: string, name?: string): Account {
   return { id, kind: 'zamindar', name }
+}
+
+/** A buyer / mill (Pakka) account. */
+export function pakkaAccount(id: string, name?: string): Account {
+  return { id, kind: 'pakka', name }
+}
+
+/** A labour contractor (Thekedar) account. */
+export function thekedarAccount(id: string, name?: string): Account {
+  return { id, kind: 'thekedar', name }
 }
 
 // --- entry primitives (the write side) ---
