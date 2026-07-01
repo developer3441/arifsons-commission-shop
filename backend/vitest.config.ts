@@ -15,7 +15,7 @@ export default defineConfig(async () => {
         singleWorker: true,
         wrangler: { configPath: './wrangler.jsonc' },
         miniflare: {
-          bindings: { TEST_MIGRATIONS: migrations },
+          bindings: { TEST_MIGRATIONS: migrations, AUTH_SECRET: 'test-secret-do-not-use-in-prod' },
         },
       }),
     ],

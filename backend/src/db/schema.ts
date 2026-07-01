@@ -8,6 +8,23 @@
 import { sql } from 'drizzle-orm'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
+/**
+ * Shop staff — the only logins (ADR-0020). Farmers/buyers/contractors are
+ * accounts/customers, never users. Password is PBKDF2 `salt:hash` (ADR-0025),
+ * never plaintext.
+ */
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  username: text('username').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: text('role').notNull(), // 'owner' | 'bookkeeper' | 'viewer'
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at')
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),
@@ -17,6 +34,9 @@ export const accounts = sqliteTable('accounts', {
 export const entries = sqliteTable('entries', {
   id: text('id').primaryKey(), // also the idempotency key (ADR-0021)
   kind: text('kind').notNull(),
+  // The authenticated user who posted this entry (ADR-0020). 'system' is a
+  // migration-only placeholder for rows written before auth existed.
+  actorUserId: text('actor_user_id').notNull().default('system'),
   // Business date the entry belongs to (ADR-0023) — defaults to "today" in PKT
   // (UTC+5, no DST): unixepoch is UTC seconds, shifting by 5h before taking the
   // date lands it on the correct PKT calendar day.

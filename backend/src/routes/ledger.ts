@@ -12,9 +12,15 @@ import {
   zamindarAccount,
 } from '../domain/posting'
 
-export type Bindings = { DB: D1Database }
+import { type AuthedBindings, type AuthedVariables } from './middleware'
 
-export const ledger = new OpenAPIHono<{ Bindings: Bindings }>()
+export type Bindings = AuthedBindings & { DB: D1Database }
+
+// Every data endpoint requires authentication (ADR-0020, wired per-path in
+// index.ts rather than a blanket '*' here — a wildcard middleware on a
+// sub-router leaks across every other router mounted onto the same parent
+// app once merged, which would also gate /auth/login and /users).
+export const ledger = new OpenAPIHono<{ Bindings: Bindings; Variables: AuthedVariables }>()
 
 const money = z.number().int().openapi({ example: 200_000 }) // whole PKR (ADR-0009)
 
@@ -69,7 +75,7 @@ ledger.openapi(
     const repo = new Repository(c.env.DB)
     const rokar = rokarAccount()
     await repo.ensureAccount(rokar)
-    await repo.recordEntry(openingBalance('opening-rokar', rokar, pkr(amount)))
+    await repo.recordEntry(openingBalance('opening-rokar', rokar, pkr(amount)), { actorUserId: c.get('userId') })
     return c.json({ accountId: ROKAR_ID, balance: await repo.balanceOf(ROKAR_ID) }, 201)
   },
 )
@@ -102,7 +108,7 @@ ledger.openapi(
   async (c) => {
     const { entryId, farmerId, amount } = c.req.valid('json')
     const entry = issuePeshiAdvance(entryId, zamindarAccount(farmerId), pkr(amount))
-    await new Repository(c.env.DB).recordEntry(entry)
+    await new Repository(c.env.DB).recordEntry(entry, { actorUserId: c.get('userId') })
     return c.json({ entryId, farmerId, amount }, 201)
   },
 )

@@ -113,7 +113,7 @@ describe('business date defaults to today (PKT) and created_at is UTC (issue #14
     await repo.ensureAccount(farmer)
 
     await repo.recordEntry(issuePeshiAdvance('adv-date-1', farmer, pkr(1_000))) // default business date
-    await repo.recordEntry(issuePeshiAdvance('adv-date-2', farmer, pkr(2_000)), '2026-01-15') // backdated
+    await repo.recordEntry(issuePeshiAdvance('adv-date-2', farmer, pkr(2_000)), { businessDate: '2026-01-15' }) // backdated
 
     const rows = await env.DB.prepare(`SELECT id, business_date FROM entries WHERE id IN (?, ?)`)
       .bind('adv-date-1', 'adv-date-2')
@@ -129,9 +129,9 @@ describe('business date defaults to today (PKT) and created_at is UTC (issue #14
     await repo.ensureAccount(rokarAccount())
     await repo.ensureAccount(farmer)
 
-    await repo.recordEntry(issuePeshiAdvance('adv-date-3', farmer, pkr(1_000)), '2026-02-01')
-    await repo.recordEntry(issuePeshiAdvance('adv-date-4', farmer, pkr(2_000)), '2026-02-01')
-    await repo.recordEntry(issuePeshiAdvance('adv-date-5', farmer, pkr(3_000)), '2026-02-02')
+    await repo.recordEntry(issuePeshiAdvance('adv-date-3', farmer, pkr(1_000)), { businessDate: '2026-02-01' })
+    await repo.recordEntry(issuePeshiAdvance('adv-date-4', farmer, pkr(2_000)), { businessDate: '2026-02-01' })
+    await repo.recordEntry(issuePeshiAdvance('adv-date-5', farmer, pkr(3_000)), { businessDate: '2026-02-02' })
 
     const totals = await repo.dailyTotals(farmer.id)
     const day1 = totals.find((t) => t.businessDate === '2026-02-01')

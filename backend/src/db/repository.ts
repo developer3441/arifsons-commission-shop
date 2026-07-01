@@ -15,6 +15,8 @@ import * as schema from './schema'
 import type { Account, Entry } from '../domain/posting'
 import { type PKR, pkr } from '../domain/money'
 import type { ChangeLogRow } from '../domain/corrections'
+import { hashPassword } from '../auth/password'
+import type { Role } from '../auth/tokens'
 
 export class Repository {
   private readonly db: ReturnType<typeof drizzle<typeof schema>>
@@ -40,7 +42,10 @@ export class Repository {
    * `businessDate` is optional (ADR-0023); omit it to take the column's "today
    * in PKT" default.
    */
-  async recordEntry(entry: Entry, businessDate?: string): Promise<{ wasNew: boolean }> {
+  async recordEntry(
+    entry: Entry,
+    options?: { businessDate?: string; actorUserId?: string },
+  ): Promise<{ wasNew: boolean }> {
     const existing = await this.db
       .select({ id: schema.entries.id })
       .from(schema.entries)
@@ -55,9 +60,9 @@ export class Repository {
       accountId: p.accountId,
       amount: p.amount as number,
     }))
-    const entryValues = businessDate
-      ? { id: entry.id, kind: entry.kind, businessDate }
-      : { id: entry.id, kind: entry.kind }
+    const entryValues: typeof schema.entries.$inferInsert = { id: entry.id, kind: entry.kind }
+    if (options?.businessDate) entryValues.businessDate = options.businessDate
+    if (options?.actorUserId) entryValues.actorUserId = options.actorUserId
 
     await this.db.batch([
       this.db.insert(schema.entries).values(entryValues),
@@ -103,5 +108,71 @@ export class Repository {
       after: row.after === null ? null : JSON.stringify(row.after),
       actorUserId: row.actor,
     })
+  }
+}
+
+export interface UserRecord {
+  id: string
+  name: string
+  username: string
+  role: Role
+  active: boolean
+}
+
+/** A thin wrapper so callers never see the password hash outside this module. */
+function toUserRecord(row: { id: string; name: string; username: string; role: string; active: boolean }): UserRecord {
+  return { id: row.id, name: row.name, username: row.username, role: row.role as Role, active: row.active }
+}
+
+/**
+ * Shop-staff user management (ADR-0020/0025). Only Owner-gated routes call
+ * these — RBAC itself is enforced at the route layer, not here.
+ */
+export class UserRepository {
+  private readonly db: ReturnType<typeof drizzle<typeof schema>>
+
+  constructor(d1: D1Database) {
+    this.db = drizzle(d1, { schema })
+  }
+
+  /** Create a user with a hashed password. Throws if the username is already taken. */
+  async createUser(id: string, name: string, username: string, password: string, role: Role): Promise<UserRecord> {
+    const passwordHash = await hashPassword(password)
+    await this.db.insert(schema.users).values({ id, name, username, passwordHash, role, active: true })
+    return { id, name, username, role, active: true }
+  }
+
+  async listUsers(): Promise<UserRecord[]> {
+    const rows = await this.db
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        username: schema.users.username,
+        role: schema.users.role,
+        active: schema.users.active,
+      })
+      .from(schema.users)
+    return rows.map(toUserRecord)
+  }
+
+  /** Find a user by username, including their password hash — for login only. */
+  async findByUsername(
+    username: string,
+  ): Promise<(UserRecord & { passwordHash: string }) | undefined> {
+    const rows = await this.db.select().from(schema.users).where(eq(schema.users.username, username)).limit(1)
+    const row = rows[0]
+    if (!row) return undefined
+    return { ...toUserRecord(row), passwordHash: row.passwordHash }
+  }
+
+  async findById(id: string): Promise<UserRecord | undefined> {
+    const rows = await this.db.select().from(schema.users).where(eq(schema.users.id, id)).limit(1)
+    const row = rows[0]
+    return row ? toUserRecord(row) : undefined
+  }
+
+  /** Deactivate a user — they can no longer log in (existing tokens still work until they expire, ADR-0025). */
+  async deactivateUser(id: string): Promise<void> {
+    await this.db.update(schema.users).set({ active: false }).where(eq(schema.users.id, id))
   }
 }

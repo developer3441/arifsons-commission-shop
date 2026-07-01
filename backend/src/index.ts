@@ -4,10 +4,22 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { swaggerUI } from '@hono/swagger-ui'
 import { ledger, type Bindings } from './routes/ledger'
+import { auth } from './routes/auth'
+import { users } from './routes/users'
+import { requireAuth, type AuthedVariables } from './routes/middleware'
 
-const app = new OpenAPIHono<{ Bindings: Bindings }>()
+const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AuthedVariables }>()
+
+// Every ledger data endpoint requires authentication (ADR-0020). Scoped to
+// specific path prefixes (not a blanket '*') so it never touches /auth/login
+// or /users (those are unauthenticated / independently Owner-gated).
+app.use('/accounts/*', requireAuth)
+app.use('/rokar/*', requireAuth)
+app.use('/advances', requireAuth)
 
 app.route('/', ledger)
+app.route('/', auth)
+app.route('/', users)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).

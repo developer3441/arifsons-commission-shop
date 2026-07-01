@@ -18,6 +18,10 @@ Living UI conventions the agent follows when building the frontend. Read on dema
 The index of app screens — one line each. The full **spec** for a screen lives in its GitHub issue;
 the **visual** lives in Figma. Keep this list in sync as screens are added.
 
+**Auth**
+- **Login** — username + password; on success routes to the Dashboard (ADR-0025).
+- **Users** (Owner-only) — create / list / deactivate shop-staff accounts and roles (ADR-0020).
+
 **Primary navigation**
 - **Dashboard** — two hero metrics (Cash in Hand, True Shop Value) + the 7 ledger balance cards +
   today's activity + quick actions (New Trade, Issue Advance, Record Payment).

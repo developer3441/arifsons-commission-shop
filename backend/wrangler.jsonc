@@ -13,5 +13,11 @@
       "database_id": "e34e9a89-38ed-4e31-bad7-a93ce8497575",
       "migrations_dir": "drizzle/migrations"
     }
-  ]
+  ],
+  // AUTH_SECRET (ADR-0025) signs bearer tokens. This placeholder is dev-only —
+  // production MUST override it via `wrangler secret put AUTH_SECRET`, never
+  // committed here. Tests supply their own fixed secret (vitest.config.ts).
+  "vars": {
+    "AUTH_SECRET": "dev-only-placeholder-override-with-wrangler-secret-put"
+  }
 }

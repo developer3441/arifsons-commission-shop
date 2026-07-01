@@ -32,11 +32,11 @@ The catalog of decisions. **Conventions & status lifecycle:** see
 | 0022 | Opening balances seeded via a one-time genesis entry | business | accepted |
 | 0023 | Business dating & timezone (settable date, PKT) | business | accepted |
 | 0024 | Backup & retention (D1 Time Travel + daily R2 export) | technical | accepted |
+| 0025 | Login mechanism: password + signed bearer token | technical | accepted |
 
-**Open / planned:** the finance NFRs are now decided — data integrity ([ADR-0021](0021-ledger-write-integrity.md)),
-backup/retention ([ADR-0024](0024-backup-and-retention.md)), and security/auth
-([ADR-0020](0020-security-auth-model.md)). Remaining follow-up: the auth **login mechanism**
-(password vs OAuth, token strategy) — a technical ADR to be written when the frontend auth is built.
+**Open / planned:** the finance NFRs are decided — data integrity ([ADR-0021](0021-ledger-write-integrity.md)),
+backup/retention ([ADR-0024](0024-backup-and-retention.md)), security/auth
+([ADR-0020](0020-security-auth-model.md)), and the login mechanism ([ADR-0025](0025-login-mechanism.md)).
 
 > **Testing is skill-driven, not an ADR** — run the `tdd` skill manually (`/tdd`, red→green→refactor). The technical map lives in [`docs/architecture.md`](../architecture.md).
 
