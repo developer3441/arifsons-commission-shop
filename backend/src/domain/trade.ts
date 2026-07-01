@@ -8,12 +8,19 @@
 
 import { type PKR, pkr, negatePkr, roundToPkr } from './money'
 import { type Posting, REVENUE_ID } from './posting'
+import { type Bag, payableMaunds } from './weight'
 
-/** One sale line: a quantity of a lot sold to one buyer at a rate. */
+/**
+ * One sale line: the lot's weighed bags sold to one buyer at a rate. Payable
+ * maunds are derived from the canonical weight pipeline (ADR-0002/0003), not
+ * carried directly — issue #3 replaces the issue #2 simplified shortcut.
+ */
 export interface SaleLine {
   buyerId: string
-  payableMaunds: number // 2dp; no Katt deduction in issue #2
+  bags: readonly Bag[]
   ratePerMaund: number // whole PKR per maund
+  /** Per-invoice Katt override — highest precedence (ADR-0003). */
+  kattKgPerBag?: number
 }
 
 /** A single-buyer trade entry (issue #2: one lot, one line). */
@@ -21,13 +28,16 @@ export interface TradeEntry {
   id: string
   farmerId: string
   thekedarId: string
-  bags: number
   line: SaleLine
 }
 
 export interface TradeConfig {
   farmerCommissionRate: number // e.g. 0.02 for 2%
   perBagLabour: number // whole PKR per bag
+  /** Global default Katt, kg per bag (ADR-0003). Lowest precedence. */
+  kattKgPerBag: number
+  /** Per-customer Katt override, keyed by farmerId. Middling precedence. */
+  customerKattKgPerBag?: Readonly<Record<string, number>>
 }
 
 /** The farmer's Kacha bill — what the shop owes the farmer, itemised. */
@@ -48,18 +58,35 @@ export interface TradeResult {
   postings: Posting[]
   farmerBill: FarmerBill
   buyerInvoice: BuyerInvoice
+  payableMaunds: number
 }
 
 /**
- * Post a single-buyer sale. Commission base is rate × payable maunds (ADR-0012);
- * labour is per-bag routed to one contractor (ADR-0007). Each line total is
- * rounded once to whole PKR (ADR-0009).
+ * Resolve the Katt to apply: per-invoice override > per-customer override >
+ * global default (ADR-0003, issue #3 acceptance criteria).
+ */
+function resolveKattKgPerBag(entry: TradeEntry, config: TradeConfig): number {
+  return (
+    entry.line.kattKgPerBag ??
+    config.customerKattKgPerBag?.[entry.farmerId] ??
+    config.kattKgPerBag
+  )
+}
+
+/**
+ * Post a single-buyer sale. Weight runs through the canonical Katt -> payable
+ * maunds pipeline (ADR-0002/0003) before pricing. Commission base is rate ×
+ * payable maunds (ADR-0012); labour is per bag routed to one contractor
+ * (ADR-0007). Each line total is rounded once to whole PKR (ADR-0009).
  */
 export function postTradeEntry(entry: TradeEntry, config: TradeConfig): TradeResult {
   const { line } = entry
-  const gross = roundToPkr(line.payableMaunds * line.ratePerMaund)
-  const commission = roundToPkr(line.payableMaunds * line.ratePerMaund * config.farmerCommissionRate)
-  const labour = roundToPkr(entry.bags * config.perBagLabour)
+  const katt = resolveKattKgPerBag(entry, config)
+  const maunds = payableMaunds(line.bags, katt)
+
+  const gross = roundToPkr(maunds * line.ratePerMaund)
+  const commission = roundToPkr(maunds * line.ratePerMaund * config.farmerCommissionRate)
+  const labour = roundToPkr(line.bags.length * config.perBagLabour)
   const net = pkr(gross - commission - labour)
 
   const postings: Posting[] = [
@@ -73,5 +100,6 @@ export function postTradeEntry(entry: TradeEntry, config: TradeConfig): TradeRes
     postings,
     farmerBill: { gross, commission, labour, net },
     buyerInvoice: { buyerId: line.buyerId, gross },
+    payableMaunds: maunds,
   }
 }
