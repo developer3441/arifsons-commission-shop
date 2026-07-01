@@ -1,1 +1,7 @@
 node_modules/
+
+# Personal — portable process guide, kept local only (not part of the project)
+/RULEBOOK.md
+
+# Local design exports (Stitch / Figma dumps)
+/stitch_splitease_agri_ledger_management*/
