@@ -21,6 +21,9 @@ export type LedgerKind =
 /** Rokar is a singleton cash ledger — one account, one fixed id. */
 export const ROKAR_ID = 'rokar'
 
+/** Amdani (commission income) is a singleton revenue ledger — one fixed id. */
+export const REVENUE_ID = 'revenue'
+
 export interface Account {
   readonly id: string
   readonly kind: LedgerKind

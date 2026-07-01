@@ -2,6 +2,8 @@
 
 Living UI conventions the agent follows when building the frontend. Read on demand.
 
+**Visual source of truth:** the Figma file — [SplitEase design](https://www.figma.com/design/Xd1YgBuZbWa12mgWoUW6kL/Untitled?node-id=0-1). Per-screen frames are linked from each issue.
+
 > **Precedence:** if a design (Figma, Stitch, mockup) conflicts with an **ADR**, `architecture.md`, or a
 > domain rule, the **system wins** — conform the design to the rule, never build the conflict; flag it
 > so the design gets fixed. Design is a narrative surface, like the blueprint; the ADR is authority.

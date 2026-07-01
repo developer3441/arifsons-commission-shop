@@ -23,3 +23,5 @@
    place). Conventions & supersession protocol: `docs/adr/0000-*`.
 
 *Test-first is the default for domain/business logic — drive it with the `tdd` skill (the red-green method lives there). Skip only for trivial/exploratory code.*
+
+*Finishing an issue: tick its acceptance-criteria boxes (each against the test that proves it), then commit + push + close.*

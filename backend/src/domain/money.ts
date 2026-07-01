@@ -22,3 +22,11 @@ export function addPkr(a: PKR, b: PKR): PKR {
 export function negatePkr(a: PKR): PKR {
   return -a as PKR
 }
+
+/**
+ * Round a full-precision value to whole PKR, round-half-up (ADR-0009). Callers
+ * compute at full precision and round once, here, at the line total.
+ */
+export function roundToPkr(value: number): PKR {
+  return pkr(Math.round(value))
+}
