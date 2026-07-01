@@ -29,11 +29,12 @@ function tradeFor(thekedarId: string, farmerId: string, bagCount: number): Trade
     id: `t-${thekedarId}-${farmerId}`,
     farmerId,
     thekedarId,
-    line: {
+    lotBags: bagCount,
+    lines: [{
       buyerId: 'buyer-mill',
       bags: Array.from({ length: bagCount }, () => ({ grossKg: 40 })),
       ratePerMaund: 1000,
-    },
+    }],
   }
 }
 

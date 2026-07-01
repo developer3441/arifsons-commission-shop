@@ -23,14 +23,15 @@ const entry: TradeEntry = {
   id: 'trade-1',
   farmerId: 'farmer-ali',
   thekedarId: 'thekedar-1',
-  line: { buyerId: 'buyer-mill', bags, ratePerMaund: 2000 },
+  lotBags: 40,
+  lines: [{ buyerId: 'buyer-mill', bags, ratePerMaund: 2000 }],
 }
 
 describe('cess accrual on a sale line (issue #7)', () => {
   it('adds cess to the buyer Pakka invoice', () => {
-    const { buyerInvoice } = postTradeEntry(entry, baseConfig)
-    expect(buyerInvoice.cess).toBe(2_000)
-    expect(buyerInvoice.total).toBe(202_000) // 200,000 sale + 2,000 cess
+    const { buyerInvoices } = postTradeEntry(entry, baseConfig)
+    expect(buyerInvoices[0]!.cess).toBe(2_000)
+    expect(buyerInvoices[0]!.total).toBe(202_000) // 200,000 sale + 2,000 cess
   })
 
   it('posts cess to the government ledger as a liability, never to revenue', () => {
@@ -53,8 +54,8 @@ describe('cess accrual on a sale line (issue #7)', () => {
 
   it('zero cessRate posts no cess at all', () => {
     const cfg: TradeConfig = { ...baseConfig, cessRate: 0 }
-    const { postings, buyerInvoice } = postTradeEntry(entry, cfg)
-    expect(buyerInvoice.cess).toBe(0)
+    const { postings, buyerInvoices } = postTradeEntry(entry, cfg)
+    expect(buyerInvoices[0]!.cess).toBe(0)
     expect(postings.find((p) => p.accountId === GOVERNMENT_ID)).toBeUndefined()
   })
 })
