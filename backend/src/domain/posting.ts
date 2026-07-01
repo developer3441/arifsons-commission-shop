@@ -36,7 +36,7 @@ export interface Posting {
   readonly amount: PKR
 }
 
-export type EntryKind = 'opening_balance' | 'peshi_advance'
+export type EntryKind = 'opening_balance' | 'peshi_advance' | 'trade'
 
 /**
  * One immutable event in the posting stream. Ledgers project from these;
