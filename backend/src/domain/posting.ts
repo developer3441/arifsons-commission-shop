@@ -130,3 +130,16 @@ export function balanceOf(stream: readonly Entry[], accountId: string): PKR {
   }
   return total
 }
+
+/**
+ * Sum the balances of several accounts of the same kind — e.g. the outstanding
+ * labour liability across all Thekedar (contractor) accounts (ADR-0007), which
+ * True Shop Value sums as a single liability term.
+ */
+export function sumBalancesOf(stream: readonly Entry[], accountIds: readonly string[]): PKR {
+  let total = pkr(0)
+  for (const accountId of accountIds) {
+    total = addPkr(total, balanceOf(stream, accountId))
+  }
+  return total
+}
