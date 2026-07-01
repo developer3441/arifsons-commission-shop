@@ -49,6 +49,7 @@ export type EntryKind =
   | 'cess_remittance'
   | 'bardana_loan'
   | 'bardana_resolution'
+  | 'stock_resale'
 
 /**
  * One immutable event in the posting stream. Ledgers project from these;

@@ -11,8 +11,8 @@
 // booked as revenue or suppressed is left to the issue #12 reconciliation
 // oracle to decide — this module does not resolve it.
 
-import { type PKR, pkr, addPkr, roundToPkr } from './money'
-import { type Account } from './posting'
+import { type PKR, pkr, addPkr, negatePkr, roundToPkr } from './money'
+import { type Account, type Entry, REVENUE_ID } from './posting'
 
 /** The shop's internal house-buyer account for Beopari (own-trading) (ADR-0005). */
 export const HOUSE_BUYER_ID = 'house'
@@ -39,9 +39,20 @@ export function emptyGodown(): GodownState {
   return { bags: 0, netKg: 0, totalCostBasis: pkr(0) }
 }
 
-/** Cost of a house purchase = winning bid (sale value) + haul-in labour (ADR-0005). */
-export function houseBuyCost(bidValue: PKR, haulInLabour: PKR): PKR {
-  return addPkr(bidValue, haulInLabour)
+/**
+ * Cost of a house purchase = the shop's total real payout obligation: the
+ * farmer's net Kacha bill plus the full labour paid to the contractor
+ * (thekedar is always paid in full regardless of bearer — issue #6). This is
+ * the cost basis that makes a house purchase exactly net-worth-neutral at the
+ * moment of purchase (Godown asset in, farmer + thekedar liabilities out,
+ * zero net change) — the reconciliation oracle (issue #12) that resolves
+ * ADR-0005's self-commission question: since farmerNet already nets out any
+ * self-commission/bag-charge, none of that needs to (or should) separately
+ * inflate the cost basis, and trade.ts correspondingly never books it as
+ * revenue for a house-buyer line.
+ */
+export function houseBuyCost(farmerNet: PKR, thekedarLabour: PKR): PKR {
+  return addPkr(farmerNet, thekedarLabour)
 }
 
 /** Receive a new stock lot into the Godown, updating the running totals. */
@@ -87,4 +98,21 @@ export function resellStock(
     totalCostBasis: pkr(state.totalCostBasis - costOfGoodsSold),
   }
   return { newState, costOfGoodsSold, tradingPnL }
+}
+
+/**
+ * Post a resale of Godown stock to a real buyer: the buyer owes the sale
+ * price, and the realised trading P&L books to revenue — itemised separately
+ * from commission at the reporting layer (dashboard.ts), even though with
+ * only 7 ledgers (ADR-0004) both land in the same account.
+ */
+export function postStockResale(id: string, buyerId: string, saleProceeds: PKR, resale: ResaleResult): Entry {
+  return {
+    id,
+    kind: 'stock_resale',
+    postings: [
+      { accountId: buyerId, amount: negatePkr(saleProceeds) },
+      { accountId: REVENUE_ID, amount: resale.tradingPnL },
+    ],
+  }
 }

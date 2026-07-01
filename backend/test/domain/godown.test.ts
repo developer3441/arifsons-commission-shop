@@ -45,9 +45,11 @@ describe('a sale line can target the internal house buyer (issue #11)', () => {
   })
 })
 
-describe('stock enters the Godown at cost = bid + haul-in labour (issue #11)', () => {
-  it('house-buy cost is the winning bid plus haul-in labour', () => {
-    expect(houseBuyCost(pkr(80_000), pkr(2_000))).toBe(82_000)
+describe('stock enters the Godown at cost = farmer net + labour (issue #11, #12)', () => {
+  it("house-buy cost is the farmer's net payout plus the labour paid to the contractor", () => {
+    // this cost basis (not the raw bid) is what makes a house purchase exactly
+    // net-worth-neutral at purchase time — see backend/src/domain/dashboard.ts
+    expect(houseBuyCost(pkr(76_400), pkr(2_000))).toBe(78_400)
   })
 
   it('receiving stock tracks bags, net kg, and running average cost per kg', () => {
@@ -88,8 +90,8 @@ describe('a later resale realises trading P&L, separate from commission (issue #
   })
 })
 
-describe('end-to-end: a house purchase lands in the Godown, then is resold (issue #11)', () => {
-  it('purchase cost (bid + haul-in labour) becomes the Godown entry, later resale realises P&L', () => {
+describe('end-to-end: a house purchase lands in the Godown, then is resold (issue #11, #12)', () => {
+  it('purchase cost (farmer net + labour) becomes the Godown entry, later resale realises P&L', () => {
     const purchase: TradeEntry = {
       id: 'trade-house-2',
       farmerId: 'farmer-b',
@@ -97,17 +99,16 @@ describe('end-to-end: a house purchase lands in the Godown, then is resold (issu
       lotBags: 40,
       lines: [{ buyerId: HOUSE_BUYER_ID, bags: Array.from({ length: 40 }, () => ({ grossKg: 40 })), ratePerMaund: 2000 }],
     }
-    const { buyerInvoices, payableMaunds } = postTradeEntry(purchase, config)
-    const bid = buyerInvoices[0]!.saleValue // 80,000 — the winning bid, excluding commission
-    const haulInLabour = pkr(2_000) // 40 bags x 50/bag, paid to the contractor
-    const cost = houseBuyCost(bid, haulInLabour)
+    const { postings, payableMaunds, farmerBill } = postTradeEntry(purchase, config)
+    const thekedarLabour = postings.find((p) => p.accountId === 'thekedar-1')!.amount
+    const cost = houseBuyCost(farmerBill.net, pkr(thekedarLabour))
 
     const godown = receiveStock(emptyGodown(), { bags: 40, netKg: payableMaunds * 40, costBasis: cost })
-    expect(godown).toEqual({ bags: 40, netKg: 1_600, totalCostBasis: 82_000 })
+    expect(godown).toEqual({ bags: 40, netKg: 1_600, totalCostBasis: 78_400 })
 
     // later, the shop flips the whole lot to a real mill at 90,000
     const { tradingPnL, costOfGoodsSold } = resellStock(godown, 40, 1_600, pkr(90_000))
-    expect(costOfGoodsSold).toBe(82_000)
-    expect(tradingPnL).toBe(8_000) // realised trading profit, distinct from any commission
+    expect(costOfGoodsSold).toBe(78_400)
+    expect(tradingPnL).toBe(11_600) // realised trading profit, distinct from any commission
   })
 })

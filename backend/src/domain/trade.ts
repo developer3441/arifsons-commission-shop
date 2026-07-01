@@ -12,6 +12,7 @@
 import { type PKR, pkr, addPkr, negatePkr, roundToPkr } from './money'
 import { type Posting, REVENUE_ID, GOVERNMENT_ID } from './posting'
 import { type Bag, payableMaunds } from './weight'
+import { HOUSE_BUYER_ID } from './godown'
 
 /** Who a bag/labour charge is billed to (ADR-0001). */
 export type CostBearer = 'farmer' | 'buyer'
@@ -148,7 +149,12 @@ function computeLine(entry: TradeEntry, line: SaleLine, config: TradeConfig): Li
   const buyerBagCharge = bagBearer === 'buyer' ? bagCharge : pkr(0)
 
   const buyerTotal = pkr(saleValue + buyerCommission + buyerLabour + buyerBagCharge + cess)
-  const revenueShare = addPkr(addPkr(farmerCommission, buyerCommission), bagCharge)
+  // A house (Beopari) purchase is the shop buying from itself (ADR-0005): any
+  // commission/bag-charge here is a self-charge, not real income, and is fully
+  // offset by the Godown cost-basis formula (farmerNet + labour) — so it is
+  // never booked to revenue. Resolved by the issue #12 reconciliation oracle.
+  const isHousePurchase = line.buyerId === HOUSE_BUYER_ID
+  const revenueShare = isHousePurchase ? pkr(0) : addPkr(addPkr(farmerCommission, buyerCommission), bagCharge)
 
   return {
     buyerInvoice: {
