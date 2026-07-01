@@ -21,6 +21,7 @@ const baseConfig: TradeConfig = {
   bagBearer: 'farmer',
   labourBearer: 'farmer',
   kattKgPerBag: 1.5,
+  cessRate: 0,
 }
 const entry: TradeEntry = {
   id: 'trade-1',
@@ -49,6 +50,7 @@ describe('single-buyer sale (issues #2, #3, #6 defaults)', () => {
       commission: 0,
       labourCharge: 0,
       bagCharge: 0,
+      cess: 0,
       total: 200_000,
     })
     expect(payableMaunds).toBe(100)
@@ -132,6 +134,7 @@ describe('both-side commission and configurable cost bearer (issue #6)', () => {
       commission: 2_000,
       labourCharge: 0,
       bagCharge: 0,
+      cess: 0,
       total: 202_000,
     })
     expect(postings).toEqual([
@@ -197,6 +200,7 @@ describe('both-side commission and configurable cost bearer (issue #6)', () => {
       bagBearer: 'buyer',
       labourBearer: 'farmer',
       kattKgPerBag: 1.5,
+      cessRate: 0.005,
     }
     const { postings } = postTradeEntry(entry, cfg)
     expect(postings.reduce((sum, p) => sum + p.amount, 0)).toBe(0)
@@ -232,6 +236,7 @@ describe('single-buyer sale — bill totals table (issues #2, #3)', () => {
       bagBearer: 'farmer',
       labourBearer: 'farmer',
       kattKgPerBag: 0,
+      cessRate: 0,
     }
     const { farmerBill } = postTradeEntry(
       { id: 't', farmerId: 'f', thekedarId: 'th', line: { buyerId: 'b', bags: lineBags, ratePerMaund: c.rate } },

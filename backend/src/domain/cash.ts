@@ -68,3 +68,18 @@ export function contractorPayout(id: string, thekedar: Account, currentBalance: 
   }
   return cashEntry(id, 'contractor_payout', thekedar.id, negatePkr(currentBalance))
 }
+
+/**
+ * Remit held cess to the market committee in full: Rokar -N, government ledger
+ * -> 0 (ADR-0004). `currentBalance` is the government ledger's balance before
+ * remittance (positive = cess held on the market committee's behalf).
+ */
+export function remitCess(id: string, government: Account, currentBalance: PKR): Entry {
+  if (government.kind !== 'government') {
+    throw new Error('A remittance must come from the government (Cess) ledger')
+  }
+  if (currentBalance <= 0) {
+    throw new RangeError('No cess is held to remit')
+  }
+  return cashEntry(id, 'cess_remittance', government.id, negatePkr(currentBalance))
+}

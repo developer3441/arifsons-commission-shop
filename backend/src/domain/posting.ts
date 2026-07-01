@@ -24,6 +24,9 @@ export const ROKAR_ID = 'rokar'
 /** Amdani (commission income) is a singleton revenue ledger — one fixed id. */
 export const REVENUE_ID = 'revenue'
 
+/** The government/cess pool is a singleton liability ledger — one fixed id. (ADR-0004) */
+export const GOVERNMENT_ID = 'government'
+
 export interface Account {
   readonly id: string
   readonly kind: LedgerKind
@@ -43,6 +46,7 @@ export type EntryKind =
   | 'buyer_payment'
   | 'farmer_withdrawal'
   | 'contractor_payout'
+  | 'cess_remittance'
 
 /**
  * One immutable event in the posting stream. Ledgers project from these;
@@ -74,6 +78,11 @@ export function pakkaAccount(id: string, name?: string): Account {
 /** A labour contractor (Thekedar) account. */
 export function thekedarAccount(id: string, name?: string): Account {
   return { id, kind: 'thekedar', name }
+}
+
+/** The singleton government/cess liability account (ADR-0004). */
+export function governmentAccount(): Account {
+  return { id: GOVERNMENT_ID, kind: 'government' }
 }
 
 // --- entry primitives (the write side) ---

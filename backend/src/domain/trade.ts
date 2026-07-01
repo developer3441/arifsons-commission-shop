@@ -8,7 +8,7 @@
 // regardless of which side (farmer/buyer) bears which charge (ADR-0001/0012).
 
 import { type PKR, pkr, addPkr, negatePkr, roundToPkr } from './money'
-import { type Posting, REVENUE_ID } from './posting'
+import { type Posting, REVENUE_ID, GOVERNMENT_ID } from './posting'
 import { type Bag, payableMaunds } from './weight'
 
 /** Who a bag/labour charge is billed to (ADR-0001). */
@@ -48,6 +48,8 @@ export interface TradeConfig {
   bagBearer: CostBearer
   /** Global default bearer for the labour charge. Default: farmer. */
   labourBearer: CostBearer
+  /** Cess rate on sale value, added to the Pakka invoice (ADR-0004). Default: 0. */
+  cessRate: number
   /** Global default Katt, kg per bag (ADR-0003). Lowest precedence. */
   kattKgPerBag: number
   /** Per-customer Katt override, keyed by farmerId. Middling precedence. */
@@ -74,6 +76,7 @@ export interface BuyerInvoice {
   commission: PKR // buyer-side commission add-on (ADR-0012)
   labourCharge: PKR // labour, only when buyer-borne
   bagCharge: PKR // bag charge, only when buyer-borne
+  cess: PKR // regulatory cess — collected for the government, never shop income (ADR-0004)
   total: PKR // what the buyer owes in total
 }
 
@@ -126,15 +129,18 @@ export function postTradeEntry(entry: TradeEntry, config: TradeConfig): TradeRes
   const farmerBagCharge = bagBearer === 'farmer' ? bagCharge : pkr(0)
   const buyerBagCharge = bagBearer === 'buyer' ? bagCharge : pkr(0)
 
+  const cess = roundToPkr(saleValue * config.cessRate)
+
   const net = pkr(saleValue - farmerCommission - farmerLabour - farmerBagCharge)
-  const buyerTotal = pkr(saleValue + buyerCommission + buyerLabour + buyerBagCharge)
+  const buyerTotal = pkr(saleValue + buyerCommission + buyerLabour + buyerBagCharge + cess)
   const revenue = addPkr(addPkr(farmerCommission, buyerCommission), bagCharge)
 
   const postings: Posting[] = [
     { accountId: line.buyerId, amount: negatePkr(buyerTotal) }, // buyer owes the shop
     { accountId: entry.farmerId, amount: net }, // shop owes the farmer
     { accountId: entry.thekedarId, amount: labour }, // shop owes the contractor (paid either way)
-    { accountId: REVENUE_ID, amount: revenue }, // commission (both sides) + bag charge earned
+    { accountId: REVENUE_ID, amount: revenue }, // commission (both sides) + bag charge earned — never cess
+    ...(cess > 0 ? [{ accountId: GOVERNMENT_ID, amount: cess }] : []), // cess is a liability, not income (ADR-0004)
   ]
 
   return {
@@ -146,6 +152,7 @@ export function postTradeEntry(entry: TradeEntry, config: TradeConfig): TradeRes
       commission: buyerCommission,
       labourCharge: buyerLabour,
       bagCharge: buyerBagCharge,
+      cess,
       total: buyerTotal,
     },
     payableMaunds: maunds,

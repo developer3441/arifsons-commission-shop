@@ -76,6 +76,7 @@ describe('the cascade end-to-end through the posting stream', () => {
       bagBearer: 'farmer',
       labourBearer: 'farmer',
       kattKgPerBag: 1.5,
+      cessRate: 0,
     }
     const { postings } = postTradeEntry(entry, config) // net to farmer: +194,000
 
