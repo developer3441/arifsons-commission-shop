@@ -4,11 +4,15 @@
 // Sign model (ADR-0010): negative = "owes the shop" (an asset); positive =
 // "the shop owes" (a liability). A sale posts the buyer negative (receivable),
 // the farmer positive (payout owed), the contractor positive (wages owed), and
-// revenue positive (commission earned) — and the four sum to zero.
+// revenue positive (commission + bag-charge earned) — and the four sum to zero,
+// regardless of which side (farmer/buyer) bears which charge (ADR-0001/0012).
 
-import { type PKR, pkr, negatePkr, roundToPkr } from './money'
+import { type PKR, pkr, addPkr, negatePkr, roundToPkr } from './money'
 import { type Posting, REVENUE_ID } from './posting'
 import { type Bag, payableMaunds } from './weight'
+
+/** Who a bag/labour charge is billed to (ADR-0001). */
+export type CostBearer = 'farmer' | 'buyer'
 
 /**
  * One sale line: the lot's weighed bags sold to one buyer at a rate. Payable
@@ -21,6 +25,10 @@ export interface SaleLine {
   ratePerMaund: number // whole PKR per maund
   /** Per-invoice Katt override — highest precedence (ADR-0003). */
   kattKgPerBag?: number
+  /** Per-invoice bag-cost-bearer override — highest precedence (ADR-0001). */
+  bagBearer?: CostBearer
+  /** Per-invoice labour-cost-bearer override — highest precedence (ADR-0001). */
+  labourBearer?: CostBearer
 }
 
 /** A single-buyer trade entry (issue #2: one lot, one line). */
@@ -32,26 +40,41 @@ export interface TradeEntry {
 }
 
 export interface TradeConfig {
-  farmerCommissionRate: number // e.g. 0.02 for 2%
+  farmerCommissionRate: number // e.g. 0.02 for 2%; deduction on the Kacha bill
+  buyerCommissionRate: number // e.g. 0 by default; addition on the Pakka invoice (ADR-0012)
   perBagLabour: number // whole PKR per bag
+  perBagCharge: number // whole PKR per bag — bardana/bag cost (ADR-0001); 0 if not charged
+  /** Global default bearer for the per-bag charge. Default: farmer. */
+  bagBearer: CostBearer
+  /** Global default bearer for the labour charge. Default: farmer. */
+  labourBearer: CostBearer
   /** Global default Katt, kg per bag (ADR-0003). Lowest precedence. */
   kattKgPerBag: number
   /** Per-customer Katt override, keyed by farmerId. Middling precedence. */
   customerKattKgPerBag?: Readonly<Record<string, number>>
+  /** Per-customer bag-bearer override, keyed by farmerId. Middling precedence. */
+  customerBagBearer?: Readonly<Record<string, CostBearer>>
+  /** Per-customer labour-bearer override, keyed by farmerId. Middling precedence. */
+  customerLabourBearer?: Readonly<Record<string, CostBearer>>
 }
 
 /** The farmer's Kacha bill — what the shop owes the farmer, itemised. */
 export interface FarmerBill {
   gross: PKR
   commission: PKR
-  labour: PKR
+  labour: PKR // 0 when labour is buyer-borne
+  bagCharge: PKR // 0 when the bag charge is buyer-borne
   net: PKR
 }
 
 /** The buyer's Pakka invoice — what the buyer owes the shop. */
 export interface BuyerInvoice {
   buyerId: string
-  gross: PKR
+  saleValue: PKR // the sale value alone, unaffected by cost-bearer choices
+  commission: PKR // buyer-side commission add-on (ADR-0012)
+  labourCharge: PKR // labour, only when buyer-borne
+  bagCharge: PKR // bag charge, only when buyer-borne
+  total: PKR // what the buyer owes in total
 }
 
 export interface TradeResult {
@@ -61,45 +84,70 @@ export interface TradeResult {
   payableMaunds: number
 }
 
-/**
- * Resolve the Katt to apply: per-invoice override > per-customer override >
- * global default (ADR-0003, issue #3 acceptance criteria).
- */
-function resolveKattKgPerBag(entry: TradeEntry, config: TradeConfig): number {
-  return (
-    entry.line.kattKgPerBag ??
-    config.customerKattKgPerBag?.[entry.farmerId] ??
-    config.kattKgPerBag
-  )
+/** Per-invoice override > per-customer override > global default (ADR-0001/0003). */
+function resolve<T>(
+  perInvoice: T | undefined,
+  farmerId: string,
+  perCustomer: Readonly<Record<string, T>> | undefined,
+  globalDefault: T,
+): T {
+  return perInvoice ?? perCustomer?.[farmerId] ?? globalDefault
 }
 
 /**
  * Post a single-buyer sale. Weight runs through the canonical Katt -> payable
- * maunds pipeline (ADR-0002/0003) before pricing. Commission base is rate ×
- * payable maunds (ADR-0012); labour is per bag routed to one contractor
- * (ADR-0007). Each line total is rounded once to whole PKR (ADR-0009).
+ * maunds pipeline (ADR-0002/0003) before pricing. Commission is charged on
+ * both sides independently (ADR-0012). Bag and labour charges each carry a
+ * configurable cost bearer (ADR-0001): a buyer-borne charge moves onto the
+ * Pakka invoice instead of deducting from the Kacha bill — the recipient (the
+ * contractor for labour, shop revenue for the bag charge) is paid either way;
+ * only who funds it changes. Every line total is rounded once (ADR-0009).
  */
 export function postTradeEntry(entry: TradeEntry, config: TradeConfig): TradeResult {
   const { line } = entry
-  const katt = resolveKattKgPerBag(entry, config)
-  const maunds = payableMaunds(line.bags, katt)
+  const katt = resolve(line.kattKgPerBag, entry.farmerId, config.customerKattKgPerBag, config.kattKgPerBag)
+  const bagBearer = resolve(line.bagBearer, entry.farmerId, config.customerBagBearer, config.bagBearer)
+  const labourBearer = resolve(
+    line.labourBearer,
+    entry.farmerId,
+    config.customerLabourBearer,
+    config.labourBearer,
+  )
 
-  const gross = roundToPkr(maunds * line.ratePerMaund)
-  const commission = roundToPkr(maunds * line.ratePerMaund * config.farmerCommissionRate)
+  const maunds = payableMaunds(line.bags, katt)
+  const saleValue = roundToPkr(maunds * line.ratePerMaund)
+  const farmerCommission = roundToPkr(saleValue * config.farmerCommissionRate)
+  const buyerCommission = roundToPkr(saleValue * config.buyerCommissionRate)
   const labour = roundToPkr(line.bags.length * config.perBagLabour)
-  const net = pkr(gross - commission - labour)
+  const bagCharge = roundToPkr(line.bags.length * config.perBagCharge)
+
+  const farmerLabour = labourBearer === 'farmer' ? labour : pkr(0)
+  const buyerLabour = labourBearer === 'buyer' ? labour : pkr(0)
+  const farmerBagCharge = bagBearer === 'farmer' ? bagCharge : pkr(0)
+  const buyerBagCharge = bagBearer === 'buyer' ? bagCharge : pkr(0)
+
+  const net = pkr(saleValue - farmerCommission - farmerLabour - farmerBagCharge)
+  const buyerTotal = pkr(saleValue + buyerCommission + buyerLabour + buyerBagCharge)
+  const revenue = addPkr(addPkr(farmerCommission, buyerCommission), bagCharge)
 
   const postings: Posting[] = [
-    { accountId: line.buyerId, amount: negatePkr(gross) }, // buyer owes the shop
+    { accountId: line.buyerId, amount: negatePkr(buyerTotal) }, // buyer owes the shop
     { accountId: entry.farmerId, amount: net }, // shop owes the farmer
-    { accountId: entry.thekedarId, amount: labour }, // shop owes the contractor
-    { accountId: REVENUE_ID, amount: commission }, // commission earned (Amdani)
+    { accountId: entry.thekedarId, amount: labour }, // shop owes the contractor (paid either way)
+    { accountId: REVENUE_ID, amount: revenue }, // commission (both sides) + bag charge earned
   ]
 
   return {
     postings,
-    farmerBill: { gross, commission, labour, net },
-    buyerInvoice: { buyerId: line.buyerId, gross },
+    farmerBill: { gross: saleValue, commission: farmerCommission, labour: farmerLabour, bagCharge: farmerBagCharge, net },
+    buyerInvoice: {
+      buyerId: line.buyerId,
+      saleValue,
+      commission: buyerCommission,
+      labourCharge: buyerLabour,
+      bagCharge: buyerBagCharge,
+      total: buyerTotal,
+    },
     payableMaunds: maunds,
   }
 }

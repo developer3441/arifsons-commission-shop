@@ -68,7 +68,15 @@ describe('the cascade end-to-end through the posting stream', () => {
       thekedarId: 'thekedar-1',
       line: { buyerId: 'buyer-mill', bags: Array.from({ length: 40 }, () => ({ grossKg: 101.5 })), ratePerMaund: 2000 },
     }
-    const config: TradeConfig = { farmerCommissionRate: 0.02, perBagLabour: 50, kattKgPerBag: 1.5 }
+    const config: TradeConfig = {
+      farmerCommissionRate: 0.02,
+      buyerCommissionRate: 0,
+      perBagLabour: 50,
+      perBagCharge: 0,
+      bagBearer: 'farmer',
+      labourBearer: 'farmer',
+      kattKgPerBag: 1.5,
+    }
     const { postings } = postTradeEntry(entry, config) // net to farmer: +194,000
 
     const stream: Entry[] = [
