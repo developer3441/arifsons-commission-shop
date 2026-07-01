@@ -21,6 +21,8 @@ the pieces fit and **where the live truth is** (schema, endpoints). Keep it high
 - **ADR-0013** TypeScript on Workers · **ADR-0014** D1 + Drizzle · **ADR-0018** monorepo (workspaces) ·
   **ADR-0016** REST + OpenAPI · **ADR-0017** React + Vite.
 
+**Delivery boundary:** two consumer surfaces — (1) the **HTTP API**, the OpenAPI contract served at `/openapi.json` (browsable at `/docs`), for programmatic clients (the web app, future mobile); and (2) the **web app screens** (see `docs/design.md`), the human-facing surface for shop staff. A user feature is not delivered until it reaches a **screen** backed by an **endpoint**; a programmatic-only capability is delivered when it reaches the API. The pure posting engine is the *test seam*, not the deliverable. (`/to-prd` and `/to-issues` read this line to keep every slice end-to-end.)
+
 ## Data flow (one trade)
 
 1. Client POSTs a trade entry → Hono route validates with **Zod**.
@@ -33,7 +35,7 @@ the pieces fit and **where the live truth is** (schema, endpoints). Keep it high
 | Thing | Source of truth |
 | --- | --- |
 | **DB schema** | Drizzle schema + migrations in `backend/` |
-| **API endpoints** | the **OpenAPI spec** generated from Hono routes (`@hono/zod-openapi`) |
+| **API endpoints** | the **OpenAPI spec** generated from Hono routes (`@hono/zod-openapi`) — served at `/openapi.json`, browsable at `/docs` (Swagger UI) |
 | **Validation / shared shapes** | **Zod** schemas in `backend/` (feed both validation and OpenAPI) |
 | **Domain rules** | `docs/adr/` |
 | **Domain logic** | the pure posting engine in `backend/` |

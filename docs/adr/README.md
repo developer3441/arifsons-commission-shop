@@ -26,9 +26,17 @@ The catalog of decisions. **Conventions & status lifecycle:** see
 | 0016 | REST API described by OpenAPI | technical | accepted |
 | 0017 | Frontend: React + Vite on Cloudflare Pages | technical | accepted |
 | 0018 | Monorepo via npm workspaces (no shared packages) | technical | accepted |
+| 0019 | Guard rails: reject physically-impossible operations | business | accepted |
+| 0020 | Security & auth: single-shop, multi-user, role-based | technical | accepted |
+| 0021 | Ledger write integrity: DB-enforced append-only + idempotency | technical | accepted |
+| 0022 | Opening balances seeded via a one-time genesis entry | business | accepted |
+| 0023 | Business dating & timezone (settable date, PKT) | business | accepted |
+| 0024 | Backup & retention (D1 Time Travel + daily R2 export) | technical | accepted |
 
-**Open / planned:** finance NFR ADRs — data integrity, backup/retention, and a security/auth model —
-still to be decided.
+**Open / planned:** the finance NFRs are now decided — data integrity ([ADR-0021](0021-ledger-write-integrity.md)),
+backup/retention ([ADR-0024](0024-backup-and-retention.md)), and security/auth
+([ADR-0020](0020-security-auth-model.md)). Remaining follow-up: the auth **login mechanism**
+(password vs OAuth, token strategy) — a technical ADR to be written when the frontend auth is built.
 
 > **Testing is skill-driven, not an ADR** — run the `tdd` skill manually (`/tdd`, red→green→refactor). The technical map lives in [`docs/architecture.md`](../architecture.md).
 

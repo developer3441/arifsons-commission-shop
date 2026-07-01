@@ -12,9 +12,11 @@ The issue tracker and triage label vocabulary should have been provided to you �
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the PRD, and respect any ADRs in the area you're touching.
 
-2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
+2. Sketch out the seams at which you're going to **test** the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
-Check with the user that these seams match their expectations.
+   ⚠️ **A test seam is NOT the delivery boundary.** The test seam is *where you assert behaviour* (often a pure function). The **delivery boundary** is the outermost surface a *consumer* of this system actually touches — read it from `docs/architecture.md` ("Delivery boundary:"). It is project-specific: an HTTP API for a service, the exported functions for a library, the commands for a CLI, the screens for an app. A low, pure-function test seam is good for *testing*, but the feature is not delivered until it reaches the delivery boundary. Name that boundary in the PRD so slices reach it — never let a low test seam silently become the deliverable.
+
+Check with the user that these seams **and the delivery boundary** match their expectations.
 
 3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 
@@ -44,6 +46,7 @@ This list of user stories should be extremely extensive and cover all aspects of
 
 A list of implementation decisions that were made. This can include:
 
+- **Delivery boundary** — the outermost surface this feature ships to (from `docs/architecture.md`): which endpoints / exported functions / commands / screens a consumer will use. State it explicitly so every slice reaches it.
 - The modules that will be built/modified
 - The interfaces of those modules that will be modified
 - Technical clarifications from the developer
@@ -66,7 +69,7 @@ A list of testing decisions that were made. Include:
 
 ## Out of Scope
 
-A description of the things that are out of scope for this PRD.
+A description of the things that are out of scope for this PRD. **Be explicit about the delivery boundary:** if any consumer-facing surface (the API, exports, CLI, or UI) is deliberately deferred, say so here by name. Silence is a bug — a layer that is neither in scope nor out becomes nobody's job and never gets an issue.
 
 ## Further Notes
 

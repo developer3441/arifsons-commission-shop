@@ -9,7 +9,7 @@
 | **Domain context** (actors, lifecycle, worked example) | `docs/blueprint.md` |
 | **Vocabulary** | `docs/glossary.md` |
 | **Rules & why** | `docs/adr/` — index: `docs/adr/README.md`; conventions: `docs/adr/0000-*` |
-| **Tech map** (stack, data flow, where schema/API truth lives) | `docs/architecture.md` |
+| **Tech map** (stack, data flow, delivery boundary, where schema/API truth lives) | `docs/architecture.md` |
 | **UI standards** (patterns, states, a11y) | `docs/design.md` |
 | **What to build** | issue tracker (work SSOT); `docs/prd/` is a generated snapshot |
 

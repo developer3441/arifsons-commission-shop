@@ -28,8 +28,9 @@ Break the plan into **tracer bullet** issues. Each issue is a thin vertical slic
 
 <vertical-slice-rules>
 
-- Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)
-- A completed slice is demoable or verifiable on its own
+- Each slice delivers a narrow but COMPLETE path from the data layer up to the project's **delivery boundary** — the outermost surface a consumer touches. Read the boundary from `docs/architecture.md` ("Delivery boundary:"); it is project-specific — an HTTP endpoint for a service, an exported function for a library, a command for a CLI, a screen for an app. Do NOT assume "API + UI"; use whatever that project declared.
+- A completed slice is demoable or verifiable **at the delivery boundary** on its own — not merely as a tested internal function below it.
+- ⚠️ **Watch for a PRD whose test seam sits below the delivery boundary** (e.g. all acceptance is "the pure engine returns X"). That describes only the bottom of the slice. Extend the slice UP to the delivery boundary — the acceptance criteria must name the consumer-facing surface (e.g. "POST /trades persists and returns X"), not just the internal function. The lone exception is when the delivery boundary genuinely IS that function (a pure library) — then stopping there is complete.
 - Any prefactoring should be done first
 
 </vertical-slice-rules>
@@ -47,6 +48,8 @@ Ask the user:
 - Does the granularity feel right? (too coarse / too fine)
 - Are the dependency relationships correct?
 - Should any slices be merged or split further?
+
+Before presenting, run a **completeness check**: does every slice reach the delivery boundary declared in `docs/architecture.md`? If any slice stops at an internal layer (pure logic only, no consumer-facing surface) — and that layer is not itself the declared boundary — flag it and extend it up before listing it. Call out anything the PRD left in the gap between its test seam and the delivery boundary.
 
 Iterate until the user approves the breakdown.
 

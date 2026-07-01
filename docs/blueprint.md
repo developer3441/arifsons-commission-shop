@@ -121,7 +121,7 @@ An advanced Mandi shop operates two completely separate financial engines under 
 
 ### Business Model 1: The Commission Agent (Arhat)
 
-The shop acts strictly as a service provider. You do not buy the crop; you simply facilitate the auction, charge your 6% fee, deduct labor, and pass the remaining money to the farmer. Your risk is low, and your profit is locked in the moment the auction finishes.
+The shop acts strictly as a service provider. You do not buy the crop; you simply facilitate the auction, charge your commission (this farmer-side 6% is illustrative — commission is charged on both sides and configurable per customer, see [ADR-0012](docs/adr/0012-commission-both-sides.md)), deduct labor, and pass the remaining money to the farmer. Your risk is low, and your profit is locked in the moment the auction finishes.
 
 ### Business Model 2: The Stockist / Trader (Beopari)
 
@@ -167,6 +167,8 @@ When harvest season arrives and the farmer sells their crop via your single entr
 2. Subtract your variable commission and labor fees.
 3. **The Auto-Deduction:** The system reads the farmer's ledger history. If they have a pre-season *Peshi* debt, the system automatically uses their new crop revenue to pay off that historical loan first.
 4. **The Net Payout:** Any remaining surplus cash is handed to the farmer, or held in their account as a positive credit balance for them to withdraw whenever they please.
+
+> **Correcting mistakes:** mis-entries are fixed via editable entries backed by an append-only change log — never by silent overwrites ([ADR-0011](docs/adr/0011-corrections-mutable-with-changelog.md)).
 
 ---
 
@@ -251,6 +253,9 @@ This model tracks how a single physical action on the Mandi floor dynamically ad
 > It is kept as a teaching trace of how balances flow. A canonical re-run under the full ADR
 > rules (gross-kg weights, both-side commission, cess ledger, configurable bearers) is tracked
 > as step (c) of the design plan.
+>
+> **Do not derive requirements from this section — it is a legacy teaching trace; the
+> authoritative rules are the ADRs.**
 
 Let’s run a complete market simulation across **3 distinct phases** to see how the mathematical matrix updates your database.
 

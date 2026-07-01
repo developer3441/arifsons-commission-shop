@@ -1,6 +1,6 @@
 # ADR-0001 — Bardana & labour cost bearer is configurable per deal
 
-**Status:** accepted · **Date:** 2026-06-30
+**Status:** accepted · **Date:** 2026-06-30 · **Clarified:** 2026-07-02 (ratify override precedence & buyer-borne bag value)
 
 ## Question
 §3.3 says a borrowed bag's cost is "absorbed" when the farmer sells at your shop, but the
@@ -18,6 +18,10 @@ configurations of the same switch.
 - Each charge line (`bag_charge`, `labor_charge`) carries a `bearer` field: `farmer | buyer`.
 - **Default:** farmer bears both (matches the simulation and the common case). Configurable
   globally, per-customer, and overridable per single-entry invoice.
+- **Precedence** (both bearer and Katt overrides): **per-invoice override > per-customer
+  override > global default.** The most specific setting wins.
+- A **buyer-borne bag is valued at the same single empty-bag value** as a farmer-borne bag —
+  there is no separate buyer bag rate.
 
 ## Consequences
 - The single-entry invoice must expose a bearer toggle on bag and labour lines.
@@ -28,5 +32,4 @@ configurations of the same switch.
 - Glossary: `bardana`, `mazdoori` updated; new term `cost_bearer`.
 
 ## Open follow-ups
-- Confirm the exact default precedence (global vs per-customer vs per-invoice).
-- Does a buyer-borne bag charge value the bag at the same 100 PKR, or a separate buyer rate?
+- None — precedence (per-invoice > per-customer > global) and single-bag-value ratified above.

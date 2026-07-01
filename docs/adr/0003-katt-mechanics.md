@@ -1,6 +1,6 @@
 # ADR-0003 — Katt is a fixed kg-per-bag deduction
 
-**Status:** accepted · **Date:** 2026-06-30
+**Status:** accepted · **Date:** 2026-06-30 · **Clarified:** 2026-07-02 (clamp is weight-only; light bag still counts for per-bag charges)
 
 ## Question
 How is the Katt weight deduction computed now that we store gross kg per bag?
@@ -18,6 +18,10 @@ covering empty-sack tare + immediate moisture allowance.
 - A bag heavier than 40 kg still pays for everything above the fixed deduction (no maund
   rounding loss) — correct behaviour for variable-weight bags.
 - Guard: `payable_kg` must not go negative on light bags; clamp at 0 and warn.
+- **The clamp is weight-only.** If `gross_kg − katt < 0`, `payable_kg` clamps at 0 (system
+  warns), but the bag **still counts** for per-bag labour ([ADR-0001](0001-bardana-and-labor-cost-bearer.md))
+  and per-bag bag-charges — those are per-bag and independent of weight. A clamped / light bag
+  does **not** reject the sale line.
 
 ## Open follow-ups
 - Is Katt ever expressed as a % of gross for very wet crops? If so, add a per-crop mode later.
