@@ -1,24 +1,35 @@
-# Architecture Decision Records — SplitEase
+# Architecture Decision Records — index
 
-Each ADR captures **one decision**: the question, the options weighed, the choice, and why.
-Written *as we grill the blueprint*, so this index doubles as the open-question backlog.
+The catalog of decisions. **Conventions & status lifecycle:** see
+[ADR-0000](0000-record-architecture-decisions.md).
 
-| ADR | Title | Status |
-| --- | --- | --- |
-| 0001 | Bardana & labour cost bearer is configurable per deal | ✅ accepted |
-| 0002 | Canonical weight model: gross kg per bag → payable maunds | ✅ accepted |
-| 0003 | Katt = fixed kg-per-bag deduction | ✅ accepted |
-| 0004 | Cess → government liability pool (**7th ledger**) | ✅ accepted |
-| 0005 | Beopari (own-trading) = shop as internal buyer | ✅ accepted |
-| 0006 | Lots are **splittable** across multiple buyers | ✅ accepted |
-| 0007 | Thekedar: **many** contractor accounts | ✅ accepted |
-| 0008 | Peshi advances are **interest-free** | ✅ accepted |
-| 0009 | PKR, whole rupees, weight to 0.01 kg | ✅ accepted |
-| 0010 | True Shop Value = full balance sheet (assets − liabilities) | ✅ accepted |
-| 0011 | Corrections = mutable entries + change log | ✅ accepted |
-| 0012 | Commission charged on **both sides**, configurable | ✅ accepted |
+> Status: `accepted` = in force · `superseded` = replaced, kept for history · `proposed` = draft
 
-**All 12 decided.** ✅ The blueprint is hardened — ready to design the data model / build.
+| ADR | Title | Type | Status |
+| --- | --- | --- | --- |
+| 0000 | Record architecture decisions (conventions) | meta | accepted |
+| 0001 | Bardana & labour cost bearer is configurable per deal | business | accepted |
+| 0002 | Canonical weight model: gross kg per bag → payable maunds | business | accepted |
+| 0003 | Katt = fixed kg-per-bag deduction | business | accepted |
+| 0004 | Cess → government liability pool (**7th ledger**) | business | accepted |
+| 0005 | Beopari (own-trading) = shop as internal buyer | business | accepted |
+| 0006 | Lots are splittable across multiple buyers | business | accepted |
+| 0007 | Thekedar: many contractor accounts | business | accepted |
+| 0008 | Peshi advances are interest-free | business | accepted |
+| 0009 | PKR, whole rupees, weight to 0.01 kg | business | accepted |
+| 0010 | True Shop Value = full balance sheet (assets − liabilities) | business | accepted |
+| 0011 | Corrections = mutable entries + change log | business | accepted |
+| 0012 | Commission charged on both sides, configurable | business | accepted |
+| 0013 | TypeScript everywhere; backend on Cloudflare Workers | technical | accepted |
+| 0014 | Persistence: Cloudflare D1 + Drizzle ORM | technical | accepted |
+| 0015 | Repo structure: separate frontend/ + backend/, no monorepo | technical | superseded by 0018 |
+| 0016 | REST API described by OpenAPI | technical | accepted |
+| 0017 | Frontend: React + Vite on Cloudflare Pages | technical | accepted |
+| 0018 | Monorepo via npm workspaces (no shared packages) | technical | accepted |
 
-> **Note:** ADR-0004 means the system has **7 ledgers**, not 6. The blueprint's "6-ledger
-> matrix" copy must be updated wherever it appears.
+**Open / planned:** finance NFR ADRs — data integrity, backup/retention, and a security/auth model —
+still to be decided.
+
+> **Testing is skill-driven, not an ADR** — run the `tdd` skill manually (`/tdd`, red→green→refactor). The technical map lives in [`docs/architecture.md`](../architecture.md).
+
+> **Note:** ADR-0004 makes the system **7 ledgers, not 6**. Any "6-ledger" copy is stale.

@@ -1,0 +1,15 @@
+{
+  "name": "splitease",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "deploy:backend": "npm run deploy -w backend",
+    "db:generate": "npm run db:generate -w backend",
+    "db:migrate": "npm run db:migrate -w backend",
+    "test": "npm run test -w backend",
+    "typecheck": "npm run typecheck -w backend",
+    "build:frontend": "npm run build -w frontend"
+  }
+}

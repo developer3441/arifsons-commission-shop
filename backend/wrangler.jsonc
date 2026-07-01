@@ -1,0 +1,17 @@
+{
+  "name": "splitease-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "account_id": "8408b7da0e85129a953304d972b80d08",
+  // Real remote D1 (ADR-0014) in the developer3441@gmail.com account, region APAC.
+  // The app (dev + deploy) uses this DB; automated tests use a throwaway local
+  // Miniflare D1 — never production data.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "splitease",
+      "database_id": "e34e9a89-38ed-4e31-bad7-a93ce8497575",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ]
+}
