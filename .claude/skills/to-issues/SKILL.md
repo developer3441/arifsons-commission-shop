@@ -30,7 +30,7 @@ Break the plan into **tracer bullet** issues. Each issue is a thin vertical slic
 
 - Each slice delivers a narrow but COMPLETE path from the data layer up to the project's **delivery boundary** — the outermost surface a consumer touches. Read the boundary from `docs/architecture.md` ("Delivery boundary:"); it is project-specific — an HTTP endpoint for a service, an exported function for a library, a command for a CLI, a screen for an app. Do NOT assume "API + UI"; use whatever that project declared.
 - A completed slice is demoable or verifiable **at the delivery boundary** on its own — not merely as a tested internal function below it.
-- **Screen-touching slices carry a visual contract.** If the slice includes a screen, its acceptance criteria MUST include a visual-conformance checkbox (e.g. "matches the linked Figma frame and the conventions in `docs/design.md`") — prose references are advisory; **only checkboxes bind**. Its References section MUST link the **specific Figma frame** for that screen, not just the whole design file.
+- **Screen-touching slices carry a visual contract.** If the slice includes a screen, its acceptance criteria MUST include a visual-conformance checkbox (e.g. "matches the visual reference declared in `docs/design.md` and its conventions") — prose references are advisory; **only checkboxes bind**. Its References section MUST link that **specific visual reference** (the reference screen, or a design frame if the project uses one), not just the whole design doc.
 - ⚠️ **Watch for a PRD whose test seam sits below the delivery boundary** (e.g. all acceptance is "the pure engine returns X"). That describes only the bottom of the slice. Extend the slice UP to the delivery boundary — the acceptance criteria must name the consumer-facing surface (e.g. "POST /trades persists and returns X"), not just the internal function. The lone exception is when the delivery boundary genuinely IS that function (a pure library) — then stopping there is complete.
 - Any prefactoring should be done first
 
@@ -87,7 +87,7 @@ Or "None - can start immediately" if no blockers.
 
 - **Project map:** CLAUDE.md — read first; points to all docs.
 - **Governing ADRs** for this slice (link each).
-- For screen slices: the **specific Figma frame** for this screen + `docs/design.md`.
+- For screen slices: the **visual reference declared in `docs/design.md`** (reference screen or design frame).
 
 </issue-template>
 

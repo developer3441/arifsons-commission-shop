@@ -2,16 +2,16 @@
 
 Living UI conventions the agent follows when building the frontend. Read on demand.
 
-**Visual source of truth:** the Figma file — [SplitEase design](https://www.figma.com/design/Xd1YgBuZbWa12mgWoUW6kL/Untitled?node-id=0-1). Per-screen frames are linked from each issue.
+**Visual source of truth ([ADR-0028](adr/0028-visual-truth-reference-screen.md)):** this file's conventions + the design tokens ([ADR-0027](adr/0027-ui-stack-tailwind-shadcn.md)) + the **Dashboard as the reference screen**. A new or restyled screen is judged against the reference screen and these conventions — via the screenshot attached to its PR. No per-screen design frames exist or are promised.
 
 > **Precedence:** if a design (Figma, Stitch, mockup) conflicts with an **ADR**, `architecture.md`, or a
 > domain rule, the **system wins** — conform the design to the rule, never build the conflict; flag it
 > so the design gets fixed. Design is a narrative surface, like the blueprint; the ADR is authority.
 
 **Not here (so this doesn't duplicate):**
-- The UI **stack decision** (component lib, styling, theming) → its own **UI ADR** when chosen.
-- Token **values** (colors, spacing numbers) → the Tailwind/CSS config = SSOT.
-- **Per-screen** specs → the GitHub issue + a linked **Figma** frame (Figma is the visual truth).
+- The UI **stack decision** → [ADR-0027](adr/0027-ui-stack-tailwind-shadcn.md) (Tailwind + shadcn/ui).
+- Token **values** (colors, spacing numbers) → the Tailwind theme / CSS variables = SSOT.
+- **Per-screen** specs → the GitHub issue + comparison against the **reference screen** (ADR-0028).
 
 ## Screens & navigation (map)
 
@@ -52,7 +52,10 @@ the **visual** lives in Figma. Keep this list in sync as screens are added.
 
 ## Stack
 
-_TBD — recorded in a UI ADR once chosen (component lib · styling · theming)._
+**Tailwind CSS + shadcn/ui** — decided in [ADR-0027](adr/0027-ui-stack-tailwind-shadcn.md).
+Tokens (incl. the fixed 7-ledger colour mapping) live as CSS variables in the Tailwind theme;
+shadcn components are copied into the repo. Inline `style={}` is not used for anything a token or
+shared component should own.
 
 ## Conventions
 
@@ -69,4 +72,5 @@ _TBD — recorded in a UI ADR once chosen (component lib · styling · theming).
 
 ## Per-screen specs
 
-Live in the GitHub issue for that screen, with a linked Figma frame — not in this file.
+Live in the GitHub issue for that screen; the visual bar is the **reference screen** + the
+conventions above (ADR-0028) — not in this file.
