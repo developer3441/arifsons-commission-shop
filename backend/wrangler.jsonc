@@ -18,7 +18,12 @@
   // production MUST override it via `wrangler secret put AUTH_SECRET`, never
   // committed here. Tests supply their own fixed secret (vitest.config.ts).
   "vars": {
-    "AUTH_SECRET": "dev-only-placeholder-override-with-wrangler-secret-put"
+    "AUTH_SECRET": "dev-only-placeholder-override-with-wrangler-secret-put",
+    // ADR-0026: comma-separated exact origins allowed to call this API
+    // cross-origin (the deployed SPA, e.g. "https://splitease.pages.dev").
+    // Empty = same-origin / dev-proxy only. Changes together with the
+    // frontend's VITE_API_URL (frontend/.env.example).
+    "CORS_ORIGINS": ""
   },
   // Daily D1 -> R2 backup export (issue #32, ADR-0024): durable off-database
   // copies beyond D1 Time Travel's ~30-day window. The bucket must exist

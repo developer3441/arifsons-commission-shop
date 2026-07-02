@@ -15,7 +15,11 @@ import {
 
 import { type AuthedBindings, type AuthedVariables } from './middleware'
 
-export type Bindings = AuthedBindings & { DB: D1Database }
+export type Bindings = AuthedBindings & {
+  DB: D1Database
+  /** Comma-separated exact origins allowed to call the API cross-origin (ADR-0026). Empty/unset = same-origin only. */
+  CORS_ORIGINS?: string
+}
 
 // Every data endpoint requires authentication (ADR-0020, wired per-path in
 // index.ts rather than a blanket '*' here — a wildcard middleware on a

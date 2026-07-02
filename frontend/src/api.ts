@@ -5,7 +5,9 @@
 // Issue #15: every data call attaches the bearer token (ADR-0025) from
 // wherever it's currently stored (see auth.tsx).
 
-const BASE = '/api'
+// Where the API lives (ADR-0026): production builds bake in VITE_API_URL;
+// dev leaves it unset and the Vite proxy forwards /api to the Worker.
+const BASE = import.meta.env.VITE_API_URL ?? '/api'
 
 let currentToken: string | null = null
 
