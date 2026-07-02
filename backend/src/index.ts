@@ -4,6 +4,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { swaggerUI } from '@hono/swagger-ui'
 import { ledger, type Bindings } from './routes/ledger'
+import { runDailyBackup } from './backup/export'
 import { dashboard } from './routes/dashboard'
 import { contacts } from './routes/contacts'
 import { config } from './routes/config'
@@ -59,4 +60,22 @@ app.doc('/openapi.json', {
 // reads the generated document, never a hand-maintained copy.
 app.get('/docs', swaggerUI({ url: '/openapi.json' }))
 
-export default app
+// The daily D1 -> R2 backup export (issue #32, ADR-0024) — a Cron Trigger
+// (wrangler.jsonc), not an HTTP route (programmatic only, per the issue).
+// Attached directly onto the exported Hono app object rather than wrapping
+// it in `{ fetch: app.fetch, scheduled }`: Wrangler's module-worker runtime
+// only ever looks for `.fetch`/`.scheduled` properties on the default
+// export, and a plain object wrapper would need `app.fetch.bind(app)` to
+// preserve `this` — attaching `.scheduled` straight onto `app` keeps both
+// working (Wrangler routing in production, and every existing test's
+// `app.request(...)` calls, unchanged) without either workaround.
+export type WorkerEnv = Bindings & { BACKUP_BUCKET: R2Bucket }
+
+const withScheduled = app as typeof app & {
+  scheduled: (controller: ScheduledController, env: WorkerEnv, ctx: ExecutionContext) => Promise<void>
+}
+withScheduled.scheduled = async (_controller, env, ctx) => {
+  ctx.waitUntil(runDailyBackup(env.DB, env.BACKUP_BUCKET))
+}
+
+export default withScheduled
