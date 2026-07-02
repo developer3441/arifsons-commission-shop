@@ -1,3 +1,5 @@
-# Local-dev secrets for `wrangler dev` — copy to backend/.dev.vars (gitignored).
-# Production values are set with `wrangler secret put <NAME>`, never committed (ADR-0025).
+# Local-dev secrets for `wrangler dev` — copy this file to backend/.dev.vars (gitignored).
+# REQUIRED for local dev: there is deliberately no committed fallback (ADR-0025) —
+# without .dev.vars, login fails loudly instead of signing tokens with a public value.
+# Production values are set with `wrangler secret put <NAME>`, never committed.
 AUTH_SECRET=dev-only-change-me

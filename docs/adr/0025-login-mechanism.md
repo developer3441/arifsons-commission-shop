@@ -27,7 +27,9 @@ request.** No sessions table, no OAuth provider — a single trusted shop's staf
 - No new persistent session state — one `users` table (id, name, username, password_hash, role,
   active) is the only new storage this ADR needs.
 - `AUTH_SECRET` must be provisioned as a Worker secret in every environment (dev/test/prod); tests
-  use a fixed test secret.
+  use a fixed test secret. *(Clarification 2026-07-02: there is deliberately **no committed
+  fallback** in `wrangler.jsonc` — local dev uses `.dev.vars`, production uses
+  `wrangler secret put`. A missing secret fails loudly; it never silently signs with a public value.)*
 - RBAC (ADR-0020) is enforced by two Hono middlewares: `requireAuth` (valid, unexpired token) and
   `requireOwner` (role === 'owner'), applied per-route.
 - Every posting and change-log row stamps `actorUserId` from the verified token (ADR-0020/0011).

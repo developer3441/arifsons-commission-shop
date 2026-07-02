@@ -14,11 +14,12 @@
       "migrations_dir": "drizzle/migrations"
     }
   ],
-  // AUTH_SECRET (ADR-0025) signs bearer tokens. This placeholder is dev-only —
-  // production MUST override it via `wrangler secret put AUTH_SECRET`, never
-  // committed here. Tests supply their own fixed secret (vitest.config.ts).
+  // AUTH_SECRET (ADR-0025) is deliberately NOT here: no committed fallback.
+  // Local dev supplies it via backend/.dev.vars (copy .dev.vars.example);
+  // production via `wrangler secret put AUTH_SECRET`; tests via
+  // vitest.config.ts. A deploy without the secret fails loudly instead of
+  // silently signing tokens with a public value.
   "vars": {
-    "AUTH_SECRET": "dev-only-placeholder-override-with-wrangler-secret-put",
     // ADR-0026: comma-separated exact origins allowed to call this API
     // cross-origin (the deployed SPA, e.g. "https://splitease.pages.dev").
     // Empty = same-origin / dev-proxy only. Changes together with the
