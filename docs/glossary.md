@@ -10,7 +10,7 @@ Shared vocabulary for the Agri-Mandi Arhat & Trading system. `code_name` = the n
 | Arhtiya | `agent` | Commission agent / shop owner / informal banker. The "you". | ✅ |
 | Zamindar | `farmer` | Producer who brings crops; borrows advances & bags. | ✅ |
 | Buyer (Mill/Wholesaler) | `buyer` | Bids at auction. Shop itself can be an internal buyer ([ADR-0005](adr/0005-beopari-flow.md)). | ✅ |
-| Thekedar | `labor_contractor` | Labour contractor; shop settles with him, not workers. | 🟡 one vs many — ADR-0007 |
+| Thekedar | `labor_contractor` | Labour contractor; shop settles with him, not workers. | ✅ many accounts — [ADR-0007](adr/0007-multiple-thekedars.md) |
 | Munshi | — | Bookkeeper (a user/role, not a ledger entity). One of the RBAC roles. | ✅ |
 | Owner | `owner` | Full-access staff role (RBAC). | ✅ [ADR-0020](adr/0020-security-auth-model.md) |
 | Viewer | `viewer` | Read-only staff role (RBAC). | ✅ [ADR-0020](adr/0020-security-auth-model.md) |
@@ -18,9 +18,9 @@ Shared vocabulary for the Agri-Mandi Arhat & Trading system. `code_name` = the n
 ## Lifecycle & floor
 | Term | `code_name` | Meaning | Status |
 | --- | --- | --- | --- |
-| Lot | `lot` | One farmer's crop pile; sequential tracking number. | 🟡 splittable? — ADR-0006 |
+| Lot | `lot` | One farmer's crop pile; sequential tracking number. | ✅ splittable — [ADR-0006](adr/0006-splittable-lots.md) |
 | Chhana / Taulai | cleaning / weighing | Sieving; weighing each bag (gross kg). | ✅ |
-| Boli | auction | Open auction; sold to highest bidder. | 🟡 one buyer/lot? — ADR-0006 |
+| Boli | auction | Open auction; sold to highest bidder. | ✅ multi-buyer per lot — [ADR-0006](adr/0006-splittable-lots.md) |
 | Bardana / Bori | `bag` | Empty bags = tracked asset; lent pre-season. Cost bearer configurable. | ✅ [ADR-0001](adr/0001-bardana-and-labor-cost-bearer.md) |
 
 ## Units & money
@@ -39,7 +39,7 @@ Shared vocabulary for the Agri-Mandi Arhat & Trading system. `code_name` = the n
 | Single Entry Invoice | `trade_entry` | One form per sold lot; derives farmer & buyer bills. | ✅ |
 | Jins Patti / Kacha | `farmer_bill` | Farmer bill: gross − commission − labour − bags − advances. | ✅ |
 | Pakka Invoice | `buyer_invoice` | Buyer bill: gross + cess + any buyer-borne bag/labour. | ✅ cess [ADR-0004](adr/0004-cess-government-liability-pool.md) |
-| Peshi | `advance` | Pre-season cash advance; verbal exclusivity. | 🟡 interest? — ADR-0008 |
+| Peshi | `advance` | Pre-season cash advance; verbal exclusivity. | ✅ interest-free — [ADR-0008](adr/0008-peshi-interest-free.md) |
 | Mazdoori | `labor_charge` | Flat fee per bag handled; bearer configurable. | ✅ [ADR-0001](adr/0001-bardana-and-labor-cost-bearer.md) |
 | Genesis entry | `genesis_entry` | One-time opening-balance seed posting. | ✅ [ADR-0022](adr/0022-opening-balances-genesis.md) |
 | Idempotency key | `idempotency_key` | Client-generated ID that makes a resubmission a safe no-op. | ✅ [ADR-0021](adr/0021-ledger-write-integrity.md) |
@@ -49,12 +49,13 @@ Shared vocabulary for the Agri-Mandi Arhat & Trading system. `code_name` = the n
 | --- | --- | --- | --- |
 | Arhat | commission model | Pure service; flat fee, zero inventory risk. | ✅ |
 | Beopari / Godown | trading model / `warehouse` | Shop buys grain itself (as internal buyer), stores, flips. | ✅ [ADR-0005](adr/0005-beopari-flow.md) |
-| Rokar Khata | `cash_ledger` | Physical cash / bank only. | ✅ |
-| Zamindar Khata | `farmer_ledger` | Per-farmer (− owes you / + you owe them). | ✅ |
-| Pakka Khata | `buyer_ledger` | Per-buyer credit (− owes you). | ✅ |
-| Thekedar Khata | `labor_ledger` | Accumulated labour owed; → 0 on payout. | 🟡 ADR-0007 |
-| Godown / Mal Khata | `stock_ledger` | Proprietary stock: bags, kg, avg cost/kg. | ✅ |
-| Amdani / Kharch | `revenue_ledger` | Commission income − overhead. | ✅ |
+| Rokar Khata | `rokar` | Physical cash / bank only (singleton). | ✅ |
+| Zamindar Khata | `zamindar` | Per-farmer (− owes you / + you owe them). | ✅ |
+| Pakka Khata | `pakka` | Per-buyer credit (− owes you). | ✅ |
+| Thekedar Khata | `thekedar` | Accumulated labour owed; → 0 on payout. | ✅ [ADR-0007](adr/0007-multiple-thekedars.md) |
+| Godown / Mal Khata | `beopari` | Proprietary stock: bags, kg, avg cost/kg. | ✅ |
+| Amdani / Kharch | `revenue` | Commission income − overhead (singleton). | ✅ |
+| Sarkari / Cess Khata | `government` | Cess held for the government — the **7th ledger**; a liability pool, never income (singleton). | ✅ [ADR-0004](adr/0004-cess-government-liability-pool.md) |
 
 ## Derived metrics
 | Term | `code_name` | Definition | Status |

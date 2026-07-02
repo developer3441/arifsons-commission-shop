@@ -10,6 +10,7 @@
     "db:migrate": "npm run db:migrate -w backend",
     "test": "npm run test -w backend",
     "typecheck": "npm run typecheck -w backend",
+    "docs:lint": "node scripts/docs-lint.mjs",
     "build:frontend": "npm run build -w frontend"
   }
 }

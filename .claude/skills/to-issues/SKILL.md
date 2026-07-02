@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Break a plan into independently-grabbable issues using vertical slices (tracer bullets).
 
-The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
+The issue tracker is **GitHub Issues** (use `gh`). Triage labels: `ready-for-agent` (fully specified, safe for an autonomous agent to pick up) and `tracer-bullet` (a thin vertical slice).
 
 ## Process
 
