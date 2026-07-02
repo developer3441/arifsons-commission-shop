@@ -11,7 +11,7 @@
 | **Rules & why** | `docs/adr/` — index: `docs/adr/README.md`; conventions: `docs/adr/0000-*` |
 | **Tech map** (stack, data flow, delivery boundary, where schema/API truth lives) | `docs/architecture.md` |
 | **UI standards** (patterns, states, a11y) | `docs/design.md` |
-| **What to build** | issue tracker (work SSOT); `docs/prd/` is a generated snapshot |
+| **What to build** | issue tracker (work SSOT); `docs/prd/current.md` is a single ephemeral scaffold, deleted once its issues are cut |
 
 ## Rules of engagement
 

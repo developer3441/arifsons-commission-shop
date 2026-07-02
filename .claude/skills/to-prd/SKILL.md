@@ -8,6 +8,8 @@ This skill takes the current conversation context and codebase understanding and
 
 The issue tracker is **GitHub Issues** (use `gh`). Triage label: `ready-for-agent` (fully specified, safe for an autonomous agent to pick up).
 
+**The PRD is a single, ephemeral scaffold.** It is NOT a source of truth — the SSOT is the ADRs (rules) and the issues (work). Write it to **`docs/prd/current.md`** (one file, overwritten each time — never accumulate numbered PRDs). It exists only to bridge from a grill's ADRs to a batch of issues via `/to-issues`, which **deletes it once the issues are cut**. Because it's rebuildable from the ADRs, losing it costs nothing. Issues therefore cite **ADRs, never the PRD**.
+
 ## Process
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the PRD, and respect any ADRs in the area you're touching.
@@ -18,7 +20,7 @@ The issue tracker is **GitHub Issues** (use `gh`). Triage label: `ready-for-agen
 
 Check with the user that these seams **and the delivery boundary** match their expectations.
 
-3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+3. Write the PRD to **`docs/prd/current.md`** using the template below (overwrite any existing one). Do not number it, do not keep prior PRDs. It is the input to `/to-issues`, which publishes the issues and then deletes this file.
 
 <prd-template>
 
