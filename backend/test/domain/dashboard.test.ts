@@ -14,7 +14,7 @@ import { postTradeEntry, type TradeEntry, type TradeConfig } from '../../src/dom
 import { buyerPayment, contractorPayout } from '../../src/domain/cash'
 import { lendBardana, resolveBardanaLoan, type BardanaLoan } from '../../src/domain/bardana'
 import { HOUSE_BUYER_ID, emptyGodown, receiveStock, resellStock, houseBuyCost, postStockResale } from '../../src/domain/godown'
-import { cashInHand, trueShopValue, retainedProfit, reconcile, entriesForAccount } from '../../src/domain/dashboard'
+import { cashInHand, trueShopValue, retainedProfit, reconcile, entriesForAccount, cashBook, accountStatement } from '../../src/domain/dashboard'
 
 // Issue #12 — Dashboard + reconciliation oracle (capstone). Governing:
 // ADR-0010 (full balance sheet, reconciliation invariant).
@@ -207,5 +207,49 @@ describe('reconciliation invariant across a multi-entry scenario (issue #12)', (
     // spot-checks on the pieces that make it up
     expect(cashInHand(stream)).toBe(978_000) // 1,000,000 − 100,000 + 80,000 − 2,000
     expect(retainedProfit(stream)).toBe(3_400) // 1,600 (trade1) + 500 (trade3 bag charge) + 1,300 (resale P&L)
+  })
+})
+
+describe('cashBook — the Rokar running cash-in/cash-out ledger (issue #27)', () => {
+  it('lists only entries that moved cash through Rokar, in order, with a running balance', () => {
+    const rokar = rokarAccount()
+    const farmer = zamindarAccount('farmer-cashbook-1')
+
+    const stream: Entry[] = [
+      openingBalance('open-cb1', rokar, pkr(500_000)),
+      issuePeshiAdvance('adv-cb1', farmer, pkr(50_000)), // cash out
+      { id: 'no-rokar-entry', kind: 'trade', postings: [{ accountId: 'buyer-x', amount: pkr(1000) }] }, // excluded
+    ]
+
+    const book = cashBook(stream)
+    expect(book).toHaveLength(2)
+    expect(book[0]).toEqual({ entryId: 'open-cb1', kind: 'opening_balance', amount: 500_000, balanceAfter: 500_000 })
+    expect(book[1]).toEqual({ entryId: 'adv-cb1', kind: 'peshi_advance', amount: -50_000, balanceAfter: 450_000 })
+  })
+
+  it('returns an empty cash book when Rokar has never been touched', () => {
+    expect(cashBook([])).toEqual([])
+  })
+})
+
+describe('accountStatement — a generic per-account drill-down for any ledger (issue #31)', () => {
+  it('lists only entries touching the given account, in order, with a running balance', () => {
+    const rokar = rokarAccount()
+    const buyer = pakkaAccount('buyer-drill-1')
+    const stream: Entry[] = [
+      openingBalance('open-drill-1', rokar, pkr(500_000)),
+      { id: 'trade-drill-1', kind: 'trade', postings: [{ accountId: buyer.id, amount: pkr(-100_000) }] },
+      { id: 'other-buyer', kind: 'trade', postings: [{ accountId: 'buyer-someone-else', amount: pkr(-1000) }] },
+      { id: 'pay-drill-1', kind: 'buyer_payment', postings: [{ accountId: rokar.id, amount: pkr(100_000) }, { accountId: buyer.id, amount: pkr(100_000) }] },
+    ]
+
+    const statement = accountStatement(stream, buyer.id)
+    expect(statement).toHaveLength(2) // trade + payment, excluding the other buyer's entry
+    expect(statement[0]).toEqual({ entryId: 'trade-drill-1', kind: 'trade', amount: -100_000, balanceAfter: -100_000 })
+    expect(statement[1]).toEqual({ entryId: 'pay-drill-1', kind: 'buyer_payment', amount: 100_000, balanceAfter: 0 })
+  })
+
+  it('returns an empty statement for an account with no entries yet', () => {
+    expect(accountStatement([], 'nobody')).toEqual([])
   })
 })

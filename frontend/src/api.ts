@@ -157,6 +157,16 @@ export interface TradeSettlement {
   newBalance: number
 }
 
+export interface GodownState {
+  bags: number
+  netKg: number
+  totalCostBasis: number
+}
+
+export interface GodownSummary extends GodownState {
+  averageCostPerKg: number
+}
+
 export interface TradeResult {
   entryId: string
   lotNumber: number
@@ -166,6 +176,7 @@ export interface TradeResult {
   farmerBill: FarmerBill
   buyerInvoices: BuyerInvoice[]
   settlement: TradeSettlement
+  godown?: { bags: number; netKg: number; totalCostBasis: number }
 }
 
 export interface TradeLineInput {
@@ -218,6 +229,51 @@ export interface ContactRecord {
   labourBearer?: CostBearer
   kattKgPerBag?: number
   balance: number
+}
+
+export interface CashBookLine {
+  entryId: string
+  kind: string
+  amount: number
+  balanceAfter: number
+}
+
+export interface CashBook {
+  balance: number
+  entries: CashBookLine[]
+}
+
+export interface LedgerSummary {
+  kind: string
+  balance: number
+}
+
+export interface LedgerAccountSummary {
+  id: string
+  name?: string
+  balance: number
+}
+
+export interface AccountStatement {
+  accountId: string
+  balance: number
+  entries: { entryId: string; kind: string; amount: number; balanceAfter: number }[]
+}
+
+export interface EntryRecord {
+  id: string
+  kind: string
+  postings: { accountId: string; amount: number }[]
+}
+
+export interface ChangeLogRow {
+  id: string
+  entryId: string
+  action: 'edit' | 'delete'
+  before: EntryRecord
+  after: EntryRecord | null
+  actor: string
+  timestamp: string
 }
 
 export interface UserRecord {
@@ -284,4 +340,32 @@ export const api = {
   createUser: (id: string, name: string, username: string, password: string, role: Role) =>
     post<UserRecord>('/users', { id, name, username, password, role }),
   deactivateUser: (id: string) => patch<{ id: string; active: boolean }>(`/users/${id}/deactivate`),
+
+  getEntry: (id: string) => get<EntryRecord>(`/entries/${id}`),
+  getChangeLog: () => get<ChangeLogRow[]>('/changelog'),
+  editEntry: (entryId: string, reversalEntryId: string, correctedEntryId: string, postings: { accountId: string; amount: number }[]) =>
+    post<{ entryId: string; reversalEntryId: string; correctedEntryId: string; warning?: string }>(
+      `/entries/${entryId}/edit`,
+      { reversalEntryId, correctedEntryId, postings },
+    ),
+  deleteEntry: (entryId: string, reversalEntryId: string) =>
+    post<{ entryId: string; reversalEntryId: string; warning?: string }>(`/entries/${entryId}/delete`, { reversalEntryId }),
+
+  listLedgers: () => get<LedgerSummary[]>('/ledgers'),
+  listLedgerAccounts: (kind: string) => get<LedgerAccountSummary[]>(`/ledgers/${kind}/accounts`),
+  getAccountStatement: (id: string) => get<AccountStatement>(`/ledgers/accounts/${encodeURIComponent(id)}/entries`),
+
+  payBuyer: (entryId: string, buyerId: string) =>
+    post<{ entryId: string; buyerId: string; amount: number }>('/payments/buyer', { entryId, buyerId }),
+  withdrawForFarmer: (entryId: string, farmerId: string, amount: number) =>
+    post<{ entryId: string; farmerId: string; amount: number }>('/payments/withdrawal', { entryId, farmerId, amount }),
+  payoutContractor: (entryId: string, thekedarId: string) =>
+    post<{ entryId: string; thekedarId: string; amount: number }>('/payments/payout', { entryId, thekedarId }),
+  getCashBook: () => get<CashBook>('/rokar/cashbook'),
+  getGodown: () => get<GodownSummary>('/godown'),
+  resellStock: (entryId: string, buyerId: string, bagsSold: number, netKgSold: number, saleProceeds: number) =>
+    post<{ entryId: string; buyerId: string; costOfGoodsSold: number; tradingPnL: number; godown: GodownState }>(
+      '/godown/resale',
+      { entryId, buyerId, bagsSold, netKgSold, saleProceeds },
+    ),
 }

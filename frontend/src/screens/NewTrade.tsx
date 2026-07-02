@@ -197,6 +197,18 @@ export function NewTrade() {
                     Split across one or more buyers — each line takes the next N bags (in weighing order).{' '}
                     {totalLineBags} / {lot.bags.length} bags assigned.
                   </p>
+                  {lines.length === 1 && (
+                    <p style={{ fontSize: '0.85rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => updateLine(lines[0]!.key, { buyerId: 'house', bagCount: String(lot.bags.length) })}
+                        disabled={saleBusy}
+                      >
+                        Sell to house (Beopari)
+                      </button>{' '}
+                      <span style={{ color: '#666' }}>— stock lands in the Godown at cost, no commission (ADR-0005).</span>
+                    </p>
+                  )}
                   <form onSubmit={onSave}>
                     <label style={{ display: 'block', margin: '0.5rem 0' }}>
                       Contractor id (labour)

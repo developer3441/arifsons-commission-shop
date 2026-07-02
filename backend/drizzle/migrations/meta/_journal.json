@@ -50,6 +50,13 @@
       "when": 1782974606526,
       "tag": "0006_plain_sir_ram",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1782977110923,
+      "tag": "0007_vengeful_firelord",
+      "breakpoints": true
     }
   ]
 }
