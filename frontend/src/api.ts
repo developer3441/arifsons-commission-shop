@@ -157,10 +157,13 @@ export interface TradeSettlement {
   newBalance: number
 }
 
-export interface GodownSummary {
+export interface GodownState {
   bags: number
   netKg: number
   totalCostBasis: number
+}
+
+export interface GodownSummary extends GodownState {
   averageCostPerKg: number
 }
 
@@ -313,4 +316,9 @@ export const api = {
     post<{ entryId: string; thekedarId: string; amount: number }>('/payments/payout', { entryId, thekedarId }),
   getCashBook: () => get<CashBook>('/rokar/cashbook'),
   getGodown: () => get<GodownSummary>('/godown'),
+  resellStock: (entryId: string, buyerId: string, bagsSold: number, netKgSold: number, saleProceeds: number) =>
+    post<{ entryId: string; buyerId: string; costOfGoodsSold: number; tradingPnL: number; godown: GodownState }>(
+      '/godown/resale',
+      { entryId, buyerId, bagsSold, netKgSold, saleProceeds },
+    ),
 }
