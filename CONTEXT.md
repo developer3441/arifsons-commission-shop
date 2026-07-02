@@ -2,7 +2,6 @@
 
 Bookkeeping for an **Agri-Mandi Arhat (commission shop) & Beopari (trading)** business: one trade on
 the mandi floor fans out across **7 ledgers**, tracking *Cash in Hand* and *True Shop Value*.
-**Design-stage** (docs only, no code yet).
 
 ## Landmines — must not get wrong
 
