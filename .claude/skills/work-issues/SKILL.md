@@ -28,11 +28,16 @@ When no unblocked issue is left, **stop** and report what's done and what's stil
 
 Work it exactly as CLAUDE.md prescribes — don't improvise a different process:
 
-- Read the issue's **acceptance criteria** and its **Governing ADRs**; build to the ADRs, not assumptions.
+- Read the issue's **acceptance criteria**, its **Governing ADRs**, and **every link in its
+  References section** — for a screen-touching slice that includes `docs/design.md` and the linked
+  design frame (the visual truth). Build to the ADRs and the design references, not assumptions.
 - Implement **test-first** (red → green), one behavior at a time — the `tdd` skill is the method.
 - Verify green before considering it done: run the project's **test** and **typecheck** commands
   (see the root README / package.json scripts).
 - Respect the architecture and dependency rules declared in `docs/architecture.md`.
+- **Screen slices:** compare the built UI against the linked design frame and `docs/design.md`
+  conventions *before* ticking any design criterion, and attach a **screenshot** of the result to
+  the PR description — CI cannot see the UI; the screenshot is what makes visual review possible.
 
 ## Guardrails
 
