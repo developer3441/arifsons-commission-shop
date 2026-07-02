@@ -11,6 +11,7 @@ import { Contacts, ContactDetail } from './screens/Contacts'
 import { Config } from './screens/Config'
 import { Genesis } from './screens/Genesis'
 import { Bardana } from './screens/Bardana'
+import { Cess } from './screens/Cess'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -109,6 +110,14 @@ export function App() {
             element={
               <RequireAuth>
                 <Bardana />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/cess"
+            element={
+              <RequireAuth>
+                <Cess />
               </RequireAuth>
             }
           />

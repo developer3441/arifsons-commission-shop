@@ -242,6 +242,9 @@ export const api = {
 
   postGenesis: (input: GenesisInput) => post<{ id: string; postings: number }>('/genesis', input),
 
+  getCessHeld: () => get<{ held: number }>('/cess'),
+  remitCess: (entryId: string) => post<{ entryId: string; amountRemitted: number }>('/cess/remit', { entryId }),
+
   createLot: (farmerId: string) => post<LotSummary>('/lots', { farmerId }),
   weighBag: (lotNumber: number, grossKg: number) => post<LotDetail>(`/lots/${lotNumber}/bags`, { grossKg }),
   getLot: (lotNumber: number) => get<LotDetail>(`/lots/${lotNumber}`),
