@@ -157,6 +157,13 @@ export interface TradeSettlement {
   newBalance: number
 }
 
+export interface GodownSummary {
+  bags: number
+  netKg: number
+  totalCostBasis: number
+  averageCostPerKg: number
+}
+
 export interface TradeResult {
   entryId: string
   lotNumber: number
@@ -166,6 +173,7 @@ export interface TradeResult {
   farmerBill: FarmerBill
   buyerInvoices: BuyerInvoice[]
   settlement: TradeSettlement
+  godown?: { bags: number; netKg: number; totalCostBasis: number }
 }
 
 export interface TradeLineInput {
@@ -304,4 +312,5 @@ export const api = {
   payoutContractor: (entryId: string, thekedarId: string) =>
     post<{ entryId: string; thekedarId: string; amount: number }>('/payments/payout', { entryId, thekedarId }),
   getCashBook: () => get<CashBook>('/rokar/cashbook'),
+  getGodown: () => get<GodownSummary>('/godown'),
 }

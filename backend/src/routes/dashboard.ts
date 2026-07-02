@@ -3,13 +3,13 @@
 // respond. No business logic lives here — cashInHand/trueShopValue/reconcile
 // are the same pure functions the domain tests exercise in-memory.
 //
-// Issue #16. Bardana lending (#21) and Godown resale (#28/#29) have no HTTP
-// routes yet, so those two True Shop Value terms are genuinely zero for now
-// (no bags have been lent, no house stock bought, through the API) — this
-// route will start passing real data for them the moment those issues land.
+// Issue #16. Godown state is now real (#28) — a house-buyer trade
+// (routes/trades.ts) folds stock into it, and this route reads it back.
+// Bardana's own True Shop Value term is deliberately always zero — see the
+// comment below on farmerReceivables/bardanaLoans for why.
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { Repository } from '../db/repository'
+import { Repository, GodownRepository } from '../db/repository'
 import { cashInHand, trueShopValue, reconcile } from '../domain/dashboard'
 import { emptyGodown } from '../domain/godown'
 import { type LedgerKind, ROKAR_ID, REVENUE_ID, GOVERNMENT_ID, sumBalancesOf } from '../domain/posting'
@@ -76,11 +76,12 @@ dashboard.openapi(
     const repo = new Repository(c.env.DB)
     const stream = await repo.allEntries()
 
-    const [zamindarAccounts, pakkaAccounts, thekedarAccounts, beopariAccounts] = await Promise.all([
+    const [zamindarAccounts, pakkaAccounts, thekedarAccounts, beopariAccounts, godownState] = await Promise.all([
       repo.accountsByKind('zamindar'),
       repo.accountsByKind('pakka'),
       repo.accountsByKind('thekedar'),
       repo.accountsByKind('beopari'),
+      new GodownRepository(c.env.DB).getState(),
     ])
 
     const farmerAccountIds = zamindarAccounts.map((a) => a.id)
@@ -93,9 +94,9 @@ dashboard.openapi(
       buyerAccountIds,
       farmerAccountIds,
       thekedarAccountIds,
-      // Godown/Beopari purchase isn't wired to persistence yet (#28/#29) —
-      // genuinely empty until it lands.
-      godown: emptyGodown(),
+      // The Godown's real running state (issue #28) — updated as a side
+      // effect of each house-buyer trade (routes/trades.ts).
+      godown: godownState,
       // Deliberately always empty, even now that bardana lending is
       // persisted (#21): domain/bardana.ts's lendBardana() already posts a
       // debit to the farmer's own ledger (verified essential to how a later
@@ -121,8 +122,23 @@ dashboard.openapi(
     // than one ledger kind at once: Rokar's positive balance is an asset,
     // but a positive farmer/thekedar balance is a *liability* — a plain sum
     // would conflate the two.
+    //
+    // Bug fixed alongside issue #28: this must use an *empty* godown and no
+    // bardana loans, not `...inputs`'s real (possibly non-zero) current
+    // state — genesis never touches either, so folding today's Godown value
+    // in here inflated "seed capital" by whatever stock happens to be on
+    // hand right now, which drove the reconciliation invariant permanently
+    // off by exactly that amount. Harmless while Godown was always
+    // emptyGodown() (pre-#28); surfaced the moment it carried real data.
     const seedEntries = stream.filter((e) => e.kind === 'opening_balance')
-    const seedCapital = trueShopValue({ ...inputs, stream: seedEntries }).total
+    const seedCapital = trueShopValue({
+      stream: seedEntries,
+      buyerAccountIds,
+      farmerAccountIds,
+      thekedarAccountIds,
+      godown: emptyGodown(),
+      bardanaLoans: [],
+    }).total
 
     const reconciliation = reconcile(seedCapital, inputs)
 

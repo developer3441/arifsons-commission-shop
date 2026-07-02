@@ -14,9 +14,12 @@
 // guard logic needed here.
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { Repository, LotRepository, ConfigRepository } from '../db/repository'
+import { Repository, LotRepository, ConfigRepository, GodownRepository } from '../db/repository'
 import { postTradeEntry, type TradeEntry, type TradeConfig } from '../domain/trade'
 import { settleFarmerProceeds } from '../domain/settlement'
+import { HOUSE_BUYER_ID, houseBuyerAccount, houseBuyCost } from '../domain/godown'
+import { KG_PER_MAUND } from '../domain/weight'
+import { pkr } from '../domain/money'
 import { zamindarAccount, pakkaAccount, thekedarAccount, governmentAccount, REVENUE_ID } from '../domain/posting'
 import { requireAuth, type AuthedBindings, type AuthedVariables } from './middleware'
 
@@ -53,6 +56,12 @@ const settlementSchema = z.object({
   newBalance: z.number().int(),
 })
 
+const godownStateSchema = z.object({
+  bags: z.number().int(),
+  netKg: z.number(),
+  totalCostBasis: z.number().int(),
+})
+
 const tradeResponse = z.object({
   entryId: z.string(),
   lotNumber: z.number().int(),
@@ -62,6 +71,9 @@ const tradeResponse = z.object({
   farmerBill: farmerBillSchema,
   buyerInvoices: z.array(buyerInvoiceSchema),
   settlement: settlementSchema,
+  // Present only for a house-buyer (Beopari) purchase — the Godown's running
+  // state after this purchase was received (issue #28, ADR-0005).
+  godown: godownStateSchema.optional(),
 })
 
 trades.openapi(
@@ -161,6 +173,19 @@ trades.openapi(
 
     const buyerIds = [...new Set(lineSpecs.map((l) => l.buyerId))]
 
+    // A house (Beopari) purchase reuses this same flow with buyerId = HOUSE_BUYER_ID
+    // (ADR-0005) — but the Godown cost-basis math below (houseBuyCost) only
+    // holds when the WHOLE trade's rolled-up farmerBill/thekedar labour went
+    // to the house, so a split lot may not mix a house-buyer line with a
+    // real buyer line in the same trade entry.
+    const isHousePurchase = buyerIds.includes(HOUSE_BUYER_ID)
+    if (isHousePurchase && buyerIds.length > 1) {
+      return c.json(
+        { error: 'Cannot mix a house-buyer (Beopari) line with a real buyer in the same trade' },
+        400,
+      )
+    }
+
     // Resolve TradeConfig: shop defaults (issue #18), with per-customer
     // overrides layered on top (issue #17) — the same "per-invoice >
     // per-customer > global" precedence trade.ts's own resolve() applies,
@@ -237,7 +262,7 @@ trades.openapi(
     // (cess) accounts, which no route has ever needed to register until now.
     await Promise.all([
       repo.ensureAccount(zamindarAccount(lot.farmerId)),
-      ...buyerIds.map((id) => repo.ensureAccount(pakkaAccount(id))),
+      ...buyerIds.map((id) => repo.ensureAccount(id === HOUSE_BUYER_ID ? houseBuyerAccount() : pakkaAccount(id))),
       repo.ensureAccount(thekedarAccount(input.thekedarId)),
       repo.ensureAccount({ id: REVENUE_ID, kind: 'revenue' }),
       repo.ensureAccount(governmentAccount()),
@@ -255,6 +280,21 @@ trades.openapi(
 
     const settlement = settleFarmerProceeds(preBalance, result.farmerBill.net)
 
+    // A house purchase (ADR-0005): stock enters the Godown at cost = farmer
+    // net + the full labour paid to the contractor (godown.ts's
+    // houseBuyCost) — self-commission is suppressed from revenue already by
+    // postTradeEntry(), so this cost basis is exactly what makes the
+    // purchase net-worth-neutral (issue #12's reconciliation oracle; see the
+    // module comment in domain/godown.ts and routes/dashboard.ts).
+    let godown
+    if (isHousePurchase) {
+      const thekedarLabour = result.postings.find((p) => p.accountId === input.thekedarId)?.amount ?? pkr(0)
+      const costBasis = houseBuyCost(result.farmerBill.net, thekedarLabour)
+      const netKg = result.payableMaunds * KG_PER_MAUND
+      const bagsBought = lineSpecs.reduce((sum, l) => sum + l.bagCount, 0)
+      godown = await new GodownRepository(c.env.DB).receiveStock({ bags: bagsBought, netKg, costBasis })
+    }
+
     return c.json(
       {
         entryId: input.entryId,
@@ -265,6 +305,7 @@ trades.openapi(
         farmerBill: result.farmerBill,
         buyerInvoices: result.buyerInvoices,
         settlement,
+        ...(godown ? { godown } : {}),
       },
       201,
     )

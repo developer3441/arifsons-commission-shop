@@ -18,6 +18,7 @@ import { type PKR, pkr } from '../domain/money'
 import type { ChangeLogRow } from '../domain/corrections'
 import { hashPassword } from '../auth/password'
 import type { Role } from '../auth/tokens'
+import { emptyGodown, receiveStock, type GodownState, type StockLot } from '../domain/godown'
 
 export class Repository {
   private readonly db: ReturnType<typeof drizzle<typeof schema>>
@@ -503,3 +504,42 @@ export class LotRepository {
   }
 }
 
+
+const GODOWN_STATE_ID = 'default'
+
+/**
+ * The Godown/Mal Khata running state (issue #28, ADR-0005) — a single row,
+ * folded through the pure domain/godown.ts on each house purchase (and
+ * later, resale — issue #29). Same "operational aggregate persisted
+ * alongside the stream" treatment as BardanaRepository above.
+ */
+export class GodownRepository {
+  private readonly db: ReturnType<typeof drizzle<typeof schema>>
+
+  constructor(d1: D1Database) {
+    this.db = drizzle(d1, { schema })
+  }
+
+  /** The current Godown state, or empty if no stock has ever been received. */
+  async getState(): Promise<GodownState> {
+    const rows = await this.db
+      .select()
+      .from(schema.godownState)
+      .where(eq(schema.godownState.id, GODOWN_STATE_ID))
+      .limit(1)
+    const row = rows[0]
+    return row ? { bags: row.bags, netKg: row.netKg, totalCostBasis: pkr(row.totalCostBasis) } : emptyGodown()
+  }
+
+  /** Receive a new stock lot (a house purchase), folding it into the running totals. */
+  async receiveStock(lot: StockLot): Promise<GodownState> {
+    const current = await this.getState()
+    const next = receiveStock(current, lot)
+    const values = { id: GODOWN_STATE_ID, bags: next.bags, netKg: next.netKg, totalCostBasis: next.totalCostBasis }
+    await this.db.insert(schema.godownState).values(values).onConflictDoUpdate({
+      target: schema.godownState.id,
+      set: values,
+    })
+    return next
+  }
+}
