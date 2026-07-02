@@ -10,6 +10,7 @@ import { config } from './routes/config'
 import { genesis } from './routes/genesis'
 import { bardana } from './routes/bardana'
 import { lots } from './routes/lots'
+import { trades } from './routes/trades'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -35,6 +36,7 @@ app.route('/', config)
 app.route('/', genesis)
 app.route('/', bardana)
 app.route('/', lots)
+app.route('/', trades)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).

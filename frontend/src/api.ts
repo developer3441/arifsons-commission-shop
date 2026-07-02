@@ -132,6 +132,43 @@ export interface LotSummary {
   businessDate: string
 }
 
+export interface FarmerBill {
+  gross: number
+  commission: number
+  labour: number
+  bagCharge: number
+  net: number
+}
+
+export interface BuyerInvoice {
+  buyerId: string
+  saleValue: number
+  commission: number
+  labourCharge: number
+  bagCharge: number
+  cess: number
+  total: number
+}
+
+export interface TradeSettlement {
+  debtRepaid: number
+  heldSurplus: number
+  remainingDebt: number
+  newBalance: number
+}
+
+export interface TradeResult {
+  entryId: string
+  lotNumber: number
+  farmerId: string
+  buyerId: string
+  thekedarId: string
+  payableMaunds: number
+  farmerBill: FarmerBill
+  buyerInvoices: BuyerInvoice[]
+  settlement: TradeSettlement
+}
+
 export interface BardanaLoan {
   farmerId: string
   bagsOut: number
@@ -201,6 +238,17 @@ export const api = {
   weighBag: (lotNumber: number, grossKg: number) => post<LotDetail>(`/lots/${lotNumber}/bags`, { grossKg }),
   getLot: (lotNumber: number) => get<LotDetail>(`/lots/${lotNumber}`),
   listLots: (farmerId?: string) => get<LotSummary[]>(`/lots${farmerId ? `?farmerId=${encodeURIComponent(farmerId)}` : ''}`),
+
+  postTrade: (input: {
+    entryId: string
+    lotNumber: number
+    buyerId: string
+    thekedarId: string
+    ratePerMaund: number
+    kattKgPerBag?: number
+    bagBearer?: CostBearer
+    labourBearer?: CostBearer
+  }) => post<TradeResult>('/trades', input),
 
   listBardanaLoans: () => get<BardanaLoan[]>('/bardana'),
   lendBardana: (entryId: string, farmerId: string, bags: number, bagValue?: number) =>
