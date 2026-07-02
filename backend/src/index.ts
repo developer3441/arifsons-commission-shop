@@ -3,6 +3,7 @@
 
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { swaggerUI } from '@hono/swagger-ui'
+import { cors } from 'hono/cors'
 import { ledger, type Bindings } from './routes/ledger'
 import { runDailyBackup } from './backup/export'
 import { dashboard } from './routes/dashboard'
@@ -22,6 +23,23 @@ import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
 
 const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AuthedVariables }>()
+
+// CORS (ADR-0026): the SPA deploys on a separate origin (Cloudflare Pages), so
+// cross-origin calls are allowed only from the exact origins listed in the
+// CORS_ORIGINS var — never '*'. Requests without an Origin header (tests,
+// same-origin, the dev proxy) skip this entirely. Auth is a bearer header
+// (ADR-0025), not cookies, so no credentialed CORS is needed.
+app.use('*', (c, next) => {
+  if (!c.req.header('origin')) return next()
+  const allowed = (c.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+  return cors({
+    origin: (origin) => (allowed.includes(origin) ? origin : null),
+    allowHeaders: ['content-type', 'authorization'],
+  })(c, next)
+})
 
 // Every ledger data endpoint requires authentication (ADR-0020). Scoped to
 // specific path prefixes (not a blanket '*') so it never touches /auth/login

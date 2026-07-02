@@ -33,6 +33,7 @@ The catalog of decisions. **Conventions & status lifecycle:** see
 | 0023 | Business dating & timezone (settable date, PKT) | business | accepted |
 | 0024 | Backup & retention (D1 Time Travel + daily R2 export) | technical | accepted |
 | 0025 | Login mechanism: password + signed bearer token | technical | accepted |
+| 0026 | Frontend ↔ API access: separate origins, `VITE_API_URL` + CORS allowlist | technical | accepted |
 
 **Open / planned:** the finance NFRs are decided — data integrity ([ADR-0021](0021-ledger-write-integrity.md)),
 backup/retention ([ADR-0024](0024-backup-and-retention.md)), security/auth
