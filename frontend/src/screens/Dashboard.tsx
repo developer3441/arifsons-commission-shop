@@ -92,6 +92,9 @@ export function Dashboard() {
           <Link to="/corrections" style={{ marginRight: '1rem' }}>
             Corrections
           </Link>
+          <Link to="/ledgers" style={{ marginRight: '1rem' }}>
+            Ledgers
+          </Link>
           {user?.role === 'owner' && (
             <>
               <Link to="/users" style={{ marginRight: '1rem' }}>

@@ -14,6 +14,7 @@ import { Bardana } from './screens/Bardana'
 import { Cess } from './screens/Cess'
 import { Godown } from './screens/Godown'
 import { Corrections } from './screens/Corrections'
+import { Ledgers } from './screens/Ledgers'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -136,6 +137,14 @@ export function App() {
             element={
               <RequireAuth>
                 <Corrections />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/ledgers"
+            element={
+              <RequireAuth>
+                <Ledgers />
               </RequireAuth>
             }
           />
