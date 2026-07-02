@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { MoneyLabel } from '../money'
 
@@ -8,7 +8,8 @@ import { MoneyLabel } from '../money'
 // is its first screen.
 export function IssueAdvance() {
   const navigate = useNavigate()
-  const [farmerId, setFarmerId] = useState('')
+  const [searchParams] = useSearchParams()
+  const [farmerId, setFarmerId] = useState(searchParams.get('farmerId') ?? '')
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
