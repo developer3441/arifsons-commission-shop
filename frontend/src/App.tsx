@@ -12,6 +12,7 @@ import { Config } from './screens/Config'
 import { Genesis } from './screens/Genesis'
 import { Bardana } from './screens/Bardana'
 import { Cess } from './screens/Cess'
+import { Godown } from './screens/Godown'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -118,6 +119,14 @@ export function App() {
             element={
               <RequireAuth>
                 <Cess />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/godown"
+            element={
+              <RequireAuth>
+                <Godown />
               </RequireAuth>
             }
           />

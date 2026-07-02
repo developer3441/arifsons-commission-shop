@@ -84,6 +84,22 @@ export const bardanaLoans = sqliteTable('bardana_loans', {
 })
 
 /**
+ * The Godown/Mal Khata running state (issue #28, ADR-0005): a single row
+ * (fixed id 'default') tracking the shop's own-trading stock — bag count,
+ * net kg, and total cost basis (winning bid + haul-in labour). Not one of
+ * the 7 posting-stream ledgers (ADR-0004), same treatment as bardanaLoans
+ * above — an operational aggregate maintained alongside the stream, folded
+ * through the pure domain/godown.ts on each house purchase (and later,
+ * resale — issue #29).
+ */
+export const godownState = sqliteTable('godown_state', {
+  id: text('id').primaryKey(),
+  bags: integer('bags').notNull(),
+  netKg: real('net_kg').notNull(),
+  totalCostBasis: integer('total_cost_basis').notNull(), // whole PKR (ADR-0009)
+})
+
+/**
  * A registered Lot (issue #22, ADR-0002/0003): a farmer's arriving produce,
  * given a sequential number, weighed bag by bag. Pre-sale state — a lot has
  * no ledger postings of its own; it only becomes money when it's sold
