@@ -535,11 +535,21 @@ export class GodownRepository {
   async receiveStock(lot: StockLot): Promise<GodownState> {
     const current = await this.getState()
     const next = receiveStock(current, lot)
-    const values = { id: GODOWN_STATE_ID, bags: next.bags, netKg: next.netKg, totalCostBasis: next.totalCostBasis }
+    await this.setState(next)
+    return next
+  }
+
+  /**
+   * Overwrite the running Godown state (issue #29 — a resale reduces it).
+   * Callers compute the new state with the pure domain functions
+   * (resellStock) first, so this is a plain write, same pattern as
+   * ConfigRepository.setConfig.
+   */
+  async setState(state: GodownState): Promise<void> {
+    const values = { id: GODOWN_STATE_ID, bags: state.bags, netKg: state.netKg, totalCostBasis: state.totalCostBasis }
     await this.db.insert(schema.godownState).values(values).onConflictDoUpdate({
       target: schema.godownState.id,
       set: values,
     })
-    return next
   }
 }
