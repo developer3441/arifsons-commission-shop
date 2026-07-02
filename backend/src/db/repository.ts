@@ -291,3 +291,77 @@ export class UserRepository {
     await this.db.update(schema.users).set({ active: false }).where(eq(schema.users.id, id))
   }
 }
+
+const SHOP_CONFIG_ID = 'default'
+
+export interface ShopConfigRecord {
+  farmerCommissionRate: number
+  buyerCommissionRate: number
+  kattKgPerBag: number
+  perBagLabour: number
+  perBagCharge: number
+  bagBearer: CostBearer
+  labourBearer: CostBearer
+  cessRate: number
+}
+
+/** Sensible out-of-the-box defaults, returned when no config has been saved yet. */
+const DEFAULT_SHOP_CONFIG: ShopConfigRecord = {
+  farmerCommissionRate: 0.02,
+  buyerCommissionRate: 0,
+  kattKgPerBag: 1.5,
+  perBagLabour: 0,
+  perBagCharge: 0,
+  bagBearer: 'farmer',
+  labourBearer: 'farmer',
+  cessRate: 0,
+}
+
+function toShopConfigRecord(row: typeof schema.shopConfig.$inferSelect): ShopConfigRecord {
+  return {
+    farmerCommissionRate: row.farmerCommissionRate,
+    buyerCommissionRate: row.buyerCommissionRate,
+    kattKgPerBag: row.kattKgPerBag,
+    perBagLabour: row.perBagLabour,
+    perBagCharge: row.perBagCharge,
+    bagBearer: row.bagBearer as CostBearer,
+    labourBearer: row.labourBearer as CostBearer,
+    cessRate: row.cessRate,
+  }
+}
+
+/**
+ * Global shop defaults (issue #18, ADR-0001/0003/0004/0012) — a single row
+ * that feeds the trade engine's TradeConfig. Owner-only to change; that's
+ * enforced at the route layer (ADR-0020), not here.
+ */
+export class ConfigRepository {
+  private readonly db: ReturnType<typeof drizzle<typeof schema>>
+
+  constructor(d1: D1Database) {
+    this.db = drizzle(d1, { schema })
+  }
+
+  /** The current config, or the built-in defaults if nothing has been saved yet. */
+  async getConfig(): Promise<ShopConfigRecord> {
+    const rows = await this.db
+      .select()
+      .from(schema.shopConfig)
+      .where(eq(schema.shopConfig.id, SHOP_CONFIG_ID))
+      .limit(1)
+    const row = rows[0]
+    return row ? toShopConfigRecord(row) : DEFAULT_SHOP_CONFIG
+  }
+
+  /** Merge a partial update into the current config (defaults for anything unset) and persist it. */
+  async setConfig(update: Partial<ShopConfigRecord>): Promise<ShopConfigRecord> {
+    const current = await this.getConfig()
+    const merged: ShopConfigRecord = { ...current, ...update }
+    const values = { id: SHOP_CONFIG_ID, ...merged }
+    await this.db.insert(schema.shopConfig).values(values).onConflictDoUpdate({
+      target: schema.shopConfig.id,
+      set: values,
+    })
+    return merged
+  }
+}

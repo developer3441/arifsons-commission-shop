@@ -28,6 +28,16 @@ async function post<T>(path: string, body: unknown, auth = true): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(BASE + path, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+  return res.json() as Promise<T>
+}
+
 async function patch<T>(path: string): Promise<T> {
   const res = await fetch(BASE + path, { method: 'PATCH', headers: authHeaders() })
   if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
@@ -88,6 +98,17 @@ export interface DashboardSnapshot {
 export type ContactKind = 'zamindar' | 'pakka' | 'thekedar'
 export type CostBearer = 'farmer' | 'buyer'
 
+export interface ShopConfig {
+  farmerCommissionRate: number
+  buyerCommissionRate: number
+  kattKgPerBag: number
+  perBagLabour: number
+  perBagCharge: number
+  bagBearer: CostBearer
+  labourBearer: CostBearer
+  cessRate: number
+}
+
 export interface ContactRecord {
   id: string
   kind: ContactKind
@@ -130,6 +151,9 @@ export const api = {
   listContacts: (kind: ContactKind, q?: string) =>
     get<ContactRecord[]>(`/contacts?kind=${kind}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
   getContact: (id: string) => get<ContactRecord>(`/contacts/${id}`),
+
+  getConfig: () => get<ShopConfig>('/config'),
+  setConfig: (update: Partial<ShopConfig>) => put<ShopConfig>('/config', update),
 
   login: (username: string, password: string) =>
     post<{ token: string; user: CurrentUser }>('/auth/login', { username, password }, false),

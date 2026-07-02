@@ -49,6 +49,25 @@ export const accounts = sqliteTable('accounts', {
   kattKgPerBag: real('katt_kg_per_bag'),
 })
 
+/**
+ * Global shop defaults (issue #18) that feed the trade engine's config
+ * (ADR-0001/0003/0004/0012): commission rates, default Katt, labour rate,
+ * empty-bag (bardana) charge, default cost-bearer, and the flat cess rate.
+ * A single row keyed by the fixed id 'default' — Owner-only to change
+ * (ADR-0020), enforced at the route layer.
+ */
+export const shopConfig = sqliteTable('shop_config', {
+  id: text('id').primaryKey(),
+  farmerCommissionRate: real('farmer_commission_rate').notNull(),
+  buyerCommissionRate: real('buyer_commission_rate').notNull(),
+  kattKgPerBag: real('katt_kg_per_bag').notNull(),
+  perBagLabour: integer('per_bag_labour').notNull(),
+  perBagCharge: integer('per_bag_charge').notNull(), // empty-bag (bardana) value per bag
+  bagBearer: text('bag_bearer').notNull(), // 'farmer' | 'buyer'
+  labourBearer: text('labour_bearer').notNull(), // 'farmer' | 'buyer'
+  cessRate: real('cess_rate').notNull(),
+})
+
 export const entries = sqliteTable('entries', {
   id: text('id').primaryKey(), // also the idempotency key (ADR-0021)
   kind: text('kind').notNull(),

@@ -81,9 +81,14 @@ export function Dashboard() {
             Contacts
           </Link>
           {user?.role === 'owner' && (
-            <Link to="/users" style={{ marginRight: '1rem' }}>
-              Manage users
-            </Link>
+            <>
+              <Link to="/users" style={{ marginRight: '1rem' }}>
+                Manage users
+              </Link>
+              <Link to="/config" style={{ marginRight: '1rem' }}>
+                Shop defaults
+              </Link>
+            </>
           )}
           <button onClick={logout}>Log out</button>
         </div>

@@ -6,6 +6,7 @@ import { swaggerUI } from '@hono/swagger-ui'
 import { ledger, type Bindings } from './routes/ledger'
 import { dashboard } from './routes/dashboard'
 import { contacts } from './routes/contacts'
+import { config } from './routes/config'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -27,6 +28,7 @@ app.route('/', auth)
 app.route('/', users)
 app.route('/', dashboard)
 app.route('/', contacts)
+app.route('/', config)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).
