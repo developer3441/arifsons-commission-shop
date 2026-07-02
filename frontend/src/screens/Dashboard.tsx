@@ -88,6 +88,9 @@ export function Dashboard() {
               <Link to="/config" style={{ marginRight: '1rem' }}>
                 Shop defaults
               </Link>
+              <Link to="/genesis" style={{ marginRight: '1rem' }}>
+                Genesis
+              </Link>
             </>
           )}
           <button onClick={logout}>Log out</button>

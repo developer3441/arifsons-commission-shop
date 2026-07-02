@@ -10,7 +10,6 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { Repository } from '../db/repository'
-import { pkr } from '../domain/money'
 import { cashInHand, trueShopValue, reconcile } from '../domain/dashboard'
 import { emptyGodown } from '../domain/godown'
 import { type LedgerKind, ROKAR_ID, REVENUE_ID, GOVERNMENT_ID, sumBalancesOf } from '../domain/posting'
@@ -102,15 +101,17 @@ dashboard.openapi(
 
     const breakdown = trueShopValue(inputs)
 
-    // Seed capital: opening balances recorded before any trading began. ADR-0022's
-    // Genesis (issue #19) will generalise this; until then, 'opening_balance'
-    // entries (e.g. POST /rokar/opening) are the seed.
-    const seedCapital = pkr(
-      stream
-        .filter((e) => e.kind === 'opening_balance')
-        .flatMap((e) => e.postings)
-        .reduce((sum, p) => sum + p.amount, 0),
-    )
+    // Seed capital (ADR-0022): the shop's opening equity, established by the
+    // one-time genesis entry (issue #19) — assets minus liabilities among
+    // just the 'opening_balance'-kind postings (POST /genesis, or the older
+    // single-account POST /rokar/opening). Folding this through the same
+    // trueShopValue() balance-sheet math (rather than naively summing raw
+    // signed amounts) is what makes it correct once genesis touches more
+    // than one ledger kind at once: Rokar's positive balance is an asset,
+    // but a positive farmer/thekedar balance is a *liability* — a plain sum
+    // would conflate the two.
+    const seedEntries = stream.filter((e) => e.kind === 'opening_balance')
+    const seedCapital = trueShopValue({ ...inputs, stream: seedEntries }).total
 
     const reconciliation = reconcile(seedCapital, inputs)
 

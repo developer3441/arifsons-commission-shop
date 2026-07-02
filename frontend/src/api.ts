@@ -98,6 +98,20 @@ export interface DashboardSnapshot {
 export type ContactKind = 'zamindar' | 'pakka' | 'thekedar'
 export type CostBearer = 'farmer' | 'buyer'
 
+export interface GenesisBalance {
+  id: string
+  name?: string
+  balance: number
+}
+
+export interface GenesisInput {
+  businessDate?: string
+  rokarOpening: number
+  farmerBalances: GenesisBalance[]
+  buyerBalances: GenesisBalance[]
+  contractorBalances: GenesisBalance[]
+}
+
 export interface ShopConfig {
   farmerCommissionRate: number
   buyerCommissionRate: number
@@ -154,6 +168,8 @@ export const api = {
 
   getConfig: () => get<ShopConfig>('/config'),
   setConfig: (update: Partial<ShopConfig>) => put<ShopConfig>('/config', update),
+
+  postGenesis: (input: GenesisInput) => post<{ id: string; postings: number }>('/genesis', input),
 
   login: (username: string, password: string) =>
     post<{ token: string; user: CurrentUser }>('/auth/login', { username, password }, false),

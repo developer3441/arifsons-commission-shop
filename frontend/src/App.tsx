@@ -9,6 +9,7 @@ import { NewTrade } from './screens/NewTrade'
 import { RecordPayment } from './screens/RecordPayment'
 import { Contacts, ContactDetail } from './screens/Contacts'
 import { Config } from './screens/Config'
+import { Genesis } from './screens/Genesis'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -91,6 +92,14 @@ export function App() {
             element={
               <RequireOwner>
                 <Config />
+              </RequireOwner>
+            }
+          />
+          <Route
+            path="/genesis"
+            element={
+              <RequireOwner>
+                <Genesis />
               </RequireOwner>
             }
           />

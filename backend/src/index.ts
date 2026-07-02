@@ -7,6 +7,7 @@ import { ledger, type Bindings } from './routes/ledger'
 import { dashboard } from './routes/dashboard'
 import { contacts } from './routes/contacts'
 import { config } from './routes/config'
+import { genesis } from './routes/genesis'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -29,6 +30,7 @@ app.route('/', users)
 app.route('/', dashboard)
 app.route('/', contacts)
 app.route('/', config)
+app.route('/', genesis)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).
