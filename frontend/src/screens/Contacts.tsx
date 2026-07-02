@@ -1,7 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, type ContactKind, type ContactRecord, type CostBearer } from '../api'
-import { MoneyLabel } from '../money'
+import { api, type ContactKind, type ContactRecord, type CostBearer, type FarmerStatement, type StatementLine } from '../api'
+import { MoneyLabel, formatPkr } from '../money'
 
 // Issue #17 — Contacts: search farmers/buyers/contractors by role, create or
 // edit one (with per-customer commission/cost-bearer/Katt overrides —
@@ -227,11 +227,68 @@ export function Contacts() {
   )
 }
 
+// Issue #26 — the running statement + settlement cascade breakdown
+// (ADR-0008): friendly labels for each entry kind that can touch a farmer.
+const ENTRY_KIND_LABEL: Record<string, string> = {
+  opening_balance: 'Opening balance',
+  peshi_advance: 'Advance (Peshi)',
+  trade: 'Sale',
+  farmer_withdrawal: 'Withdrawal',
+  bardana_loan: 'Bardana lent',
+  bardana_resolution: 'Bardana resolved',
+}
+
+function StatementTable({ statement }: { statement: FarmerStatement }) {
+  if (statement.entries.length === 0) {
+    return <p>No activity yet for this farmer.</p>
+  }
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' }}>
+      <thead>
+        <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
+          <th>Entry</th>
+          <th>Amount</th>
+          <th>Balance after</th>
+        </tr>
+      </thead>
+      <tbody>
+        {statement.entries.map((line: StatementLine) => (
+          <Fragment key={line.entryId}>
+            <tr style={{ borderBottom: line.settlement ? 'none' : '1px solid #eee' }}>
+              <td>{ENTRY_KIND_LABEL[line.kind] ?? line.kind}</td>
+              <td style={{ color: line.amount < 0 ? '#a53434' : '#1e7a34' }}>
+                {line.amount < 0 ? '−' : '+'}
+                {formatPkr(line.amount)}
+              </td>
+              <td>
+                <MoneyLabel kind="zamindar" balance={line.balanceAfter} />
+              </td>
+            </tr>
+            {line.settlement && (
+              <tr style={{ borderBottom: '1px solid #eee' }}>
+                <td colSpan={3} style={{ padding: '0.25rem 0 0.6rem 1rem', color: '#555', fontSize: '0.9rem' }}>
+                  Settlement cascade (ADR-0008): debt repaid {formatPkr(line.settlement.debtRepaid)} · held
+                  surplus {formatPkr(line.settlement.heldSurplus)}
+                  {line.settlement.remainingDebt > 0 && <> · remaining debt {formatPkr(line.settlement.remainingDebt)}</>}
+                </td>
+              </tr>
+            )}
+          </Fragment>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 export function ContactDetail() {
   const { id } = useParams<{ id: string }>()
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const [statement, setStatement] = useState<FarmerStatement | null>(null)
+  const [statementError, setStatementError] = useState<string | null>(null)
+  const [statementLoading, setStatementLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -244,8 +301,21 @@ export function ContactDetail() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // The running statement + settlement cascade breakdown only applies to
+  // Zamindar (farmer) accounts (issue #26, ADR-0008).
+  useEffect(() => {
+    if (!id || !contact || contact.kind !== 'zamindar') return
+    setStatementLoading(true)
+    setStatementError(null)
+    api
+      .getFarmerStatement(id)
+      .then(setStatement)
+      .catch(() => setStatementError('Could not load the running statement.'))
+      .finally(() => setStatementLoading(false))
+  }, [id, contact])
+
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
+    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
       <p>
         <Link to="/contacts">&larr; Contacts</Link>
       </p>
@@ -273,6 +343,28 @@ export function ContactDetail() {
           )}
           {contact.kind === 'pakka' && contact.buyerCommissionRate !== undefined && (
             <p>Buyer commission override: {contact.buyerCommissionRate}</p>
+          )}
+
+          {contact.kind === 'zamindar' && (
+            <>
+              <div style={{ display: 'flex', gap: '0.75rem', margin: '1rem 0' }}>
+                <Link to={`/advance?farmerId=${encodeURIComponent(contact.id)}`}>
+                  <button type="button">Issue advance</button>
+                </Link>
+                <Link to={`/payment?farmerId=${encodeURIComponent(contact.id)}`}>
+                  <button type="button">Withdraw</button>
+                </Link>
+              </div>
+
+              <h2>Running statement</h2>
+              {statementLoading && <p>Loading…</p>}
+              {!statementLoading && statementError && (
+                <p role="alert" style={{ color: 'crimson' }}>
+                  {statementError}
+                </p>
+              )}
+              {!statementLoading && !statementError && statement && <StatementTable statement={statement} />}
+            </>
           )}
         </>
       )}

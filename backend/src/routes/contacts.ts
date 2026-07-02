@@ -8,6 +8,7 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { Repository } from '../db/repository'
+import { farmerStatement } from '../domain/settlement'
 import { type AuthedBindings, type AuthedVariables } from './middleware'
 
 export type Bindings = AuthedBindings & { DB: D1Database }
@@ -107,5 +108,58 @@ contacts.openapi(
     const contact = await new Repository(c.env.DB).getContact(id)
     if (!contact) return c.json({ error: 'Not found' }, 404)
     return c.json(contact, 200)
+  },
+)
+
+// --- a farmer's running statement + settlement cascade breakdown (issue #26) ---
+const statementSettlementSchema = z.object({
+  debtRepaid: z.number().int(),
+  heldSurplus: z.number().int(),
+  remainingDebt: z.number().int(),
+  newBalance: z.number().int(),
+})
+
+const statementLineSchema = z.object({
+  entryId: z.string(),
+  kind: z.string(),
+  amount: z.number().int(),
+  balanceAfter: z.number().int(),
+  settlement: statementSettlementSchema.optional(),
+})
+
+contacts.openapi(
+  createRoute({
+    method: 'get',
+    path: '/contacts/{id}/statement',
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: "The farmer's running statement: every entry that touched their account, in order, " +
+          'with the running balance and (for a sale) the settlement cascade breakdown (ADR-0008)',
+        content: {
+          'application/json': {
+            schema: z.object({
+              farmerId: z.string(),
+              balance: z.number().int(),
+              entries: z.array(statementLineSchema),
+            }),
+          },
+        },
+      },
+      404: { description: 'No such contact' },
+      400: { description: 'Statement is only available for Zamindar (farmer) accounts' },
+    },
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const repo = new Repository(c.env.DB)
+    const contact = await repo.getContact(id)
+    if (!contact) return c.json({ error: 'Not found' }, 404)
+    if (contact.kind !== 'zamindar') {
+      return c.json({ error: 'Statement is only available for Zamindar (farmer) accounts' }, 400)
+    }
+    const stream = await repo.allEntries()
+    const entries = farmerStatement(stream, id)
+    return c.json({ farmerId: id, balance: contact.balance, entries }, 200)
   },
 )

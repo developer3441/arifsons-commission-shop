@@ -194,6 +194,20 @@ export interface ShopConfig {
   cessRate: number
 }
 
+export interface StatementLine {
+  entryId: string
+  kind: string
+  amount: number
+  balanceAfter: number
+  settlement?: TradeSettlement
+}
+
+export interface FarmerStatement {
+  farmerId: string
+  balance: number
+  entries: StatementLine[]
+}
+
 export interface ContactRecord {
   id: string
   kind: ContactKind
@@ -236,6 +250,7 @@ export const api = {
   listContacts: (kind: ContactKind, q?: string) =>
     get<ContactRecord[]>(`/contacts?kind=${kind}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
   getContact: (id: string) => get<ContactRecord>(`/contacts/${id}`),
+  getFarmerStatement: (id: string) => get<FarmerStatement>(`/contacts/${id}/statement`),
 
   getConfig: () => get<ShopConfig>('/config'),
   setConfig: (update: Partial<ShopConfig>) => put<ShopConfig>('/config', update),
