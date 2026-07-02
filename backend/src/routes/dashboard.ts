@@ -93,9 +93,20 @@ dashboard.openapi(
       buyerAccountIds,
       farmerAccountIds,
       thekedarAccountIds,
-      // Not yet wired to persistence (#21 lending, #28 Beopari purchase) —
-      // genuinely empty until those land, so these terms are correctly 0.
+      // Godown/Beopari purchase isn't wired to persistence yet (#28/#29) —
+      // genuinely empty until it lands.
       godown: emptyGodown(),
+      // Deliberately always empty, even now that bardana lending is
+      // persisted (#21): domain/bardana.ts's lendBardana() already posts a
+      // debit to the farmer's own ledger (verified essential to how a later
+      // trade sale settles the loan — see test/domain/bardana.test.ts's
+      // farmer-/buyer-borne cases), which farmerReceivables above already
+      // counts as an asset. Also passing the same outstanding loan here
+      // would double it. One consequence worth knowing: while a bardana loan
+      // is outstanding, True Shop Value is correctly higher by its value,
+      // and the reconciliation invariant below shows that as non-zero drift
+      // until the loan is returned or resolved via a sale — expected
+      // behaviour of round 1's bardana model, not a bug.
       bardanaLoans: [],
     }
 

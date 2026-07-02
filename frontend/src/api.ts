@@ -112,6 +112,12 @@ export interface GenesisInput {
   contractorBalances: GenesisBalance[]
 }
 
+export interface BardanaLoan {
+  farmerId: string
+  bagsOut: number
+  bagValue: number
+}
+
 export interface ShopConfig {
   farmerCommissionRate: number
   buyerCommissionRate: number
@@ -170,6 +176,12 @@ export const api = {
   setConfig: (update: Partial<ShopConfig>) => put<ShopConfig>('/config', update),
 
   postGenesis: (input: GenesisInput) => post<{ id: string; postings: number }>('/genesis', input),
+
+  listBardanaLoans: () => get<BardanaLoan[]>('/bardana'),
+  lendBardana: (entryId: string, farmerId: string, bags: number, bagValue?: number) =>
+    post<BardanaLoan>('/bardana/lend', { entryId, farmerId, bags, bagValue }),
+  returnBardana: (entryId: string, farmerId: string, bags: number) =>
+    post<BardanaLoan>('/bardana/return', { entryId, farmerId, bags }),
 
   login: (username: string, password: string) =>
     post<{ token: string; user: CurrentUser }>('/auth/login', { username, password }, false),

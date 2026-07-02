@@ -10,6 +10,7 @@ import { RecordPayment } from './screens/RecordPayment'
 import { Contacts, ContactDetail } from './screens/Contacts'
 import { Config } from './screens/Config'
 import { Genesis } from './screens/Genesis'
+import { Bardana } from './screens/Bardana'
 
 // Issue #15 — routing shell: Login is public; everything else requires a
 // session, and /users additionally requires the Owner role (ADR-0020).
@@ -101,6 +102,14 @@ export function App() {
               <RequireOwner>
                 <Genesis />
               </RequireOwner>
+            }
+          />
+          <Route
+            path="/bardana"
+            element={
+              <RequireAuth>
+                <Bardana />
+              </RequireAuth>
             }
           />
         </Routes>

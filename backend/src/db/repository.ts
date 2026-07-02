@@ -365,3 +365,79 @@ export class ConfigRepository {
     return merged
   }
 }
+
+export interface BardanaLoanRecord {
+  farmerId: string
+  bagsOut: number
+  bagValue: PKR
+}
+
+export class InsufficientBagsError extends Error {
+  constructor(available: number, requested: number) {
+    super(`Cannot return more bags than are outstanding: outstanding ${available}, requested ${requested}`)
+    this.name = 'InsufficientBagsError'
+  }
+}
+
+function toBardanaLoanRecord(row: typeof schema.bardanaLoans.$inferSelect): BardanaLoanRecord {
+  return { farmerId: row.farmerId, bagsOut: row.bagsOut, bagValue: pkr(row.bagValue) }
+}
+
+/**
+ * Bardana lending tracker (issue #21) — "bags out per farmer", separate from
+ * the money side (which already flows through the farmer's ledger balance
+ * via the domain lendBardana()/resolveBardanaLoan() postings; see
+ * routes/bardana.ts for why this table isn't also fed into the dashboard's
+ * bardanaOutValue term).
+ */
+export class BardanaRepository {
+  private readonly db: ReturnType<typeof drizzle<typeof schema>>
+
+  constructor(d1: D1Database) {
+    this.db = drizzle(d1, { schema })
+  }
+
+  async getLoan(farmerId: string): Promise<BardanaLoanRecord | undefined> {
+    const rows = await this.db
+      .select()
+      .from(schema.bardanaLoans)
+      .where(eq(schema.bardanaLoans.farmerId, farmerId))
+      .limit(1)
+    const row = rows[0]
+    return row ? toBardanaLoanRecord(row) : undefined
+  }
+
+  /** Every farmer with bags currently outstanding — the tracker screen's list. */
+  async listOutstanding(): Promise<BardanaLoanRecord[]> {
+    const rows = await this.db.select().from(schema.bardanaLoans).where(sql`${schema.bardanaLoans.bagsOut} > 0`)
+    return rows.map(toBardanaLoanRecord)
+  }
+
+  /** Lend more bags to a farmer: bags-out increases; bagValue is remembered for the next return. */
+  async lend(farmerId: string, bags: number, bagValue: PKR): Promise<BardanaLoanRecord> {
+    const current = await this.getLoan(farmerId)
+    const bagsOut = (current?.bagsOut ?? 0) + bags
+    await this.db
+      .insert(schema.bardanaLoans)
+      .values({ farmerId, bagsOut, bagValue })
+      .onConflictDoUpdate({ target: schema.bardanaLoans.farmerId, set: { bagsOut, bagValue } })
+    return { farmerId, bagsOut, bagValue }
+  }
+
+  /** Return bags: bags-out decreases. Throws InsufficientBagsError if more bags are returned than are out. */
+  async returnBags(farmerId: string, bags: number): Promise<BardanaLoanRecord> {
+    const current = await this.getLoan(farmerId)
+    const outstanding = current?.bagsOut ?? 0
+    if (bags > outstanding) {
+      throw new InsufficientBagsError(outstanding, bags)
+    }
+    const bagsOut = outstanding - bags
+    const bagValue = current?.bagValue ?? pkr(0)
+    await this.db
+      .insert(schema.bardanaLoans)
+      .values({ farmerId, bagsOut, bagValue })
+      .onConflictDoUpdate({ target: schema.bardanaLoans.farmerId, set: { bagsOut } })
+    return { farmerId, bagsOut, bagValue }
+  }
+}
+

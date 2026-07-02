@@ -68,6 +68,21 @@ export const shopConfig = sqliteTable('shop_config', {
   cessRate: real('cess_rate').notNull(),
 })
 
+/**
+ * Bardana (empty bag) lending tracker (issue #21, ADR-0001/0010): one row per
+ * farmer with bags currently outstanding. This is purely an operational
+ * tracker for "bags out per farmer" — the *money* value of an outstanding
+ * loan already flows into True Shop Value through the farmer's own ledger
+ * balance (lendBardana posts a debit there; see routes/bardana.ts for the
+ * full reasoning on why this table is not also fed into the dashboard's
+ * separate bardanaOutValue term, to avoid double-counting the same asset).
+ */
+export const bardanaLoans = sqliteTable('bardana_loans', {
+  farmerId: text('farmer_id').primaryKey(),
+  bagsOut: integer('bags_out').notNull(),
+  bagValue: integer('bag_value').notNull(), // whole PKR per bag, from the most recent lend (ADR-0009)
+})
+
 export const entries = sqliteTable('entries', {
   id: text('id').primaryKey(), // also the idempotency key (ADR-0021)
   kind: text('kind').notNull(),

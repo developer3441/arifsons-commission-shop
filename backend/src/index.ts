@@ -8,6 +8,7 @@ import { dashboard } from './routes/dashboard'
 import { contacts } from './routes/contacts'
 import { config } from './routes/config'
 import { genesis } from './routes/genesis'
+import { bardana } from './routes/bardana'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -31,6 +32,7 @@ app.route('/', dashboard)
 app.route('/', contacts)
 app.route('/', config)
 app.route('/', genesis)
+app.route('/', bardana)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).

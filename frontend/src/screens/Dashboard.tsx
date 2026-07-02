@@ -80,6 +80,9 @@ export function Dashboard() {
           <Link to="/contacts" style={{ marginRight: '1rem' }}>
             Contacts
           </Link>
+          <Link to="/bardana" style={{ marginRight: '1rem' }}>
+            Bardana
+          </Link>
           {user?.role === 'owner' && (
             <>
               <Link to="/users" style={{ marginRight: '1rem' }}>
