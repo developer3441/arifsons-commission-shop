@@ -200,6 +200,91 @@ describe('POST /trades', () => {
     expect(body.buyerInvoices[0]!.labourCharge).toBeGreaterThan(0)
   })
 
+  it('splits a lot across 2 buyers at different rates, rolling up to one farmer bill (issue #24, ADR-0006)', async () => {
+    const token = await login('trade-6')
+    const auth = { headers: { authorization: `Bearer ${token}` } }
+    const lotNumber = await weighLot(token, 'farmer-trade-6', 40, 101.5) // 40 bags, 100 payable kg each -> 100 maund total
+    await app.request('/contacts', json({ id: 'buyer-6a', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-6b', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'thekedar-6', kind: 'thekedar' }, token), env)
+
+    const post = await app.request(
+      '/trades',
+      json(
+        {
+          entryId: 'trade-e6',
+          lotNumber,
+          thekedarId: 'thekedar-6',
+          lines: [
+            { buyerId: 'buyer-6a', bagCount: 25, ratePerMaund: 2000 }, // 25 bags -> 62.5 maund x 2000 = 125,000
+            { buyerId: 'buyer-6b', bagCount: 15, ratePerMaund: 2200 }, // 15 bags -> 37.5 maund x 2200 = 82,500
+          ],
+        },
+        token,
+      ),
+      env,
+    )
+    expect(post.status).toBe(201)
+    const body = (await post.json()) as {
+      payableMaunds: number
+      farmerBill: { gross: number }
+      buyerInvoices: { buyerId: string; saleValue: number; total: number }[]
+    }
+    expect(body.payableMaunds).toBe(100) // 62.5 + 37.5
+    expect(body.buyerInvoices).toHaveLength(2)
+    expect(body.buyerInvoices.find((i) => i.buyerId === 'buyer-6a')!.saleValue).toBe(125_000)
+    expect(body.buyerInvoices.find((i) => i.buyerId === 'buyer-6b')!.saleValue).toBe(82_500)
+    expect(body.farmerBill.gross).toBe(207_500) // rolled up across both lines
+
+    const [buyerABal, buyerBBal] = await Promise.all([
+      app.request('/accounts/buyer-6a/balance', auth, env),
+      app.request('/accounts/buyer-6b/balance', auth, env),
+    ])
+    const buyerA = (await buyerABal.json()) as { balance: number }
+    const buyerB = (await buyerBBal.json()) as { balance: number }
+    expect(buyerA.balance).toBe(-125_000)
+    expect(buyerB.balance).toBe(-82_500)
+  })
+
+  it('rejects overselling the lot across split lines (ADR-0019)', async () => {
+    const token = await login('trade-7')
+    const lotNumber = await weighLot(token, 'farmer-trade-7', 10, 101.5) // only 10 bags
+    await app.request('/contacts', json({ id: 'buyer-7a', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-7b', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'thekedar-7', kind: 'thekedar' }, token), env)
+
+    const res = await app.request(
+      '/trades',
+      json(
+        {
+          entryId: 'trade-e7',
+          lotNumber,
+          thekedarId: 'thekedar-7',
+          lines: [
+            { buyerId: 'buyer-7a', bagCount: 7, ratePerMaund: 2000 },
+            { buyerId: 'buyer-7b', bagCount: 7, ratePerMaund: 2000 }, // 7+7=14 > 10 bags in the lot
+          ],
+        },
+        token,
+      ),
+      env,
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toMatch(/oversell/i)
+  })
+
+  it('rejects a request with neither the single-buyer shorthand nor a lines array', async () => {
+    const token = await login('trade-8')
+    const lotNumber = await weighLot(token, 'farmer-trade-8', 5, 101.5)
+    const res = await app.request(
+      '/trades',
+      json({ entryId: 'trade-e8', lotNumber, thekedarId: 'thekedar-8' }, token),
+      env,
+    )
+    expect(res.status).toBe(400)
+  })
+
   it('rejects a trade against a lot with no weighed bags', async () => {
     const token = await login('trade-4')
     const create = await app.request('/lots', json({ farmerId: 'farmer-trade-4' }, token), env)

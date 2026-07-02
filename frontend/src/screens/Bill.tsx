@@ -57,36 +57,42 @@ export function Bill({ result }: { result: TradeResult }) {
       </section>
 
       <section style={{ flex: 1, minWidth: 260, border: '1px solid #ddd', borderRadius: 10, padding: '1rem' }}>
-        <h3 style={{ marginTop: 0 }}>Pakka invoice — {result.buyerId}</h3>
+        <h3 style={{ marginTop: 0 }}>
+          Pakka invoice{buyerInvoices.length > 1 ? 's' : ''} ({buyerInvoices.length} buyer
+          {buyerInvoices.length > 1 ? 's' : ''})
+        </h3>
         {buyerInvoices.map((inv, i) => (
-          <table key={i} style={{ width: '100%' }}>
-            <tbody>
-              <tr>
-                <td>Sale value</td>
-                <td style={{ textAlign: 'right' }}>{formatPkr(inv.saleValue)}</td>
-              </tr>
-              <tr>
-                <td>+ Commission</td>
-                <td style={{ textAlign: 'right' }}>{formatPkr(inv.commission)}</td>
-              </tr>
-              <tr>
-                <td>+ Labour</td>
-                <td style={{ textAlign: 'right' }}>{formatPkr(inv.labourCharge)}</td>
-              </tr>
-              <tr>
-                <td>+ Bag charge</td>
-                <td style={{ textAlign: 'right' }}>{formatPkr(inv.bagCharge)}</td>
-              </tr>
-              <tr>
-                <td>+ Cess</td>
-                <td style={{ textAlign: 'right' }}>{formatPkr(inv.cess)}</td>
-              </tr>
-              <tr style={{ fontWeight: 700, borderTop: '1px solid #ddd' }}>
-                <td>Total owed</td>
-                <td style={{ textAlign: 'right' }}>{formatPkr(inv.total)}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div key={i} style={{ marginBottom: i < buyerInvoices.length - 1 ? '1rem' : 0 }}>
+            <h4 style={{ marginBottom: '0.25rem' }}>{inv.buyerId}</h4>
+            <table style={{ width: '100%' }}>
+              <tbody>
+                <tr>
+                  <td>Sale value</td>
+                  <td style={{ textAlign: 'right' }}>{formatPkr(inv.saleValue)}</td>
+                </tr>
+                <tr>
+                  <td>+ Commission</td>
+                  <td style={{ textAlign: 'right' }}>{formatPkr(inv.commission)}</td>
+                </tr>
+                <tr>
+                  <td>+ Labour</td>
+                  <td style={{ textAlign: 'right' }}>{formatPkr(inv.labourCharge)}</td>
+                </tr>
+                <tr>
+                  <td>+ Bag charge</td>
+                  <td style={{ textAlign: 'right' }}>{formatPkr(inv.bagCharge)}</td>
+                </tr>
+                <tr>
+                  <td>+ Cess</td>
+                  <td style={{ textAlign: 'right' }}>{formatPkr(inv.cess)}</td>
+                </tr>
+                <tr style={{ fontWeight: 700, borderTop: '1px solid #ddd' }}>
+                  <td>Total owed</td>
+                  <td style={{ textAlign: 'right' }}>{formatPkr(inv.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         ))}
         <p style={{ color: '#666' }}>Payable weight: {result.payableMaunds.toFixed(2)} maund</p>
       </section>

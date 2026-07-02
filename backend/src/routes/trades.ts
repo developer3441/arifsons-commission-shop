@@ -1,11 +1,17 @@
 // Thin HTTP boundary (architecture.md): resolve config → call the pure trade
 // engine (trade.ts, unchanged from round 1) → persist append-only and
-// idempotent → respond with the Kacha bill / Pakka invoice / settlement
-// breakdown for the New Trade flow's review screen. Issue #23.
+// idempotent → respond with the Kacha bill / Pakka invoice(s) / settlement
+// breakdown for the New Trade flow's review screen. Issue #23 + #24.
 //
 // The lot must already be registered and weighed (issue #22) — this is the
-// back half of the New Trade flow. Single buyer only (split lots across
-// multiple buyers is issue #24).
+// back half of the New Trade flow. Two request shapes: the single-buyer
+// shorthand (buyerId + ratePerMaund at the top level, using every bag in the
+// lot — issue #23's original shape, kept for backward compatibility) or an
+// explicit `lines` array for a split sale across 2+ buyers (issue #24,
+// ADR-0006) — each line takes the next `bagCount` bags from the lot, in
+// weighing order. Overselling (more bags across lines than the lot holds) is
+// rejected by postTradeEntry()'s own existing guard (ADR-0019) — no new
+// guard logic needed here.
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { Repository, LotRepository, ConfigRepository } from '../db/repository'
@@ -51,7 +57,6 @@ const tradeResponse = z.object({
   entryId: z.string(),
   lotNumber: z.number().int(),
   farmerId: z.string(),
-  buyerId: z.string(),
   thekedarId: z.string(),
   payableMaunds: z.number(),
   farmerBill: farmerBillSchema,
@@ -67,23 +72,42 @@ trades.openapi(
       body: {
         content: {
           'application/json': {
-            schema: z.object({
-              entryId: z.string(),
-              lotNumber: z.number().int(),
-              buyerId: z.string(),
-              thekedarId: z.string(),
-              ratePerMaund: z.number().int().positive(),
-              kattKgPerBag: z.number().optional(),
-              bagBearer: bearerSchema.optional(),
-              labourBearer: bearerSchema.optional(),
-            }),
+            schema: z
+              .object({
+                entryId: z.string(),
+                lotNumber: z.number().int(),
+                thekedarId: z.string(),
+                // Single-buyer shorthand (issue #23): uses every bag in the lot.
+                buyerId: z.string().optional(),
+                ratePerMaund: z.number().int().positive().optional(),
+                kattKgPerBag: z.number().optional(),
+                bagBearer: bearerSchema.optional(),
+                labourBearer: bearerSchema.optional(),
+                // Split-lot shape (issue #24, ADR-0006): 2+ lines, each taking the
+                // next `bagCount` bags from the lot (in weighing order).
+                lines: z
+                  .array(
+                    z.object({
+                      buyerId: z.string(),
+                      bagCount: z.number().int().positive(),
+                      ratePerMaund: z.number().int().positive(),
+                      kattKgPerBag: z.number().optional(),
+                      bagBearer: bearerSchema.optional(),
+                      labourBearer: bearerSchema.optional(),
+                    }),
+                  )
+                  .optional(),
+              })
+              .refine((v) => v.lines?.length || (v.buyerId && v.ratePerMaund), {
+                message: 'Provide either buyerId + ratePerMaund, or a lines array',
+              }),
           },
         },
       },
     },
     responses: {
       201: { description: 'Trade posted', content: { 'application/json': { schema: tradeResponse } } },
-      400: { description: 'Invalid trade (e.g. an empty lot)' },
+      400: { description: 'Invalid trade (e.g. an empty lot, oversell, or malformed request)' },
       404: { description: 'No such lot' },
     },
   }),
@@ -98,15 +122,61 @@ trades.openapi(
       return c.json({ error: 'This lot has no weighed bags yet' }, 400)
     }
 
+    // Normalise both request shapes into one `lines` list, slicing the lot's
+    // bags (in weighing order) by each line's bagCount for a split sale.
+    type LineSpec = {
+      buyerId: string
+      bagCount: number
+      ratePerMaund: number
+      kattKgPerBag?: number
+      bagBearer?: 'farmer' | 'buyer'
+      labourBearer?: 'farmer' | 'buyer'
+    }
+    const lineSpecs: LineSpec[] = input.lines?.length
+      ? input.lines
+      : [
+          {
+            buyerId: input.buyerId!,
+            bagCount: lot.bags.length,
+            ratePerMaund: input.ratePerMaund!,
+            kattKgPerBag: input.kattKgPerBag,
+            bagBearer: input.bagBearer,
+            labourBearer: input.labourBearer,
+          },
+        ]
+
+    // Oversell guard (ADR-0019): checked here against the *requested* bag
+    // counts, before slicing — Array.slice() silently clamps to what's
+    // available rather than throwing, which would otherwise let an oversell
+    // slip past postTradeEntry()'s own guard (that guard compares against
+    // each line's *actual* bags.length, which would already be the clamped,
+    // too-small count by the time it runs).
+    const totalRequested = lineSpecs.reduce((sum, l) => sum + l.bagCount, 0)
+    if (totalRequested > lot.bags.length) {
+      return c.json(
+        { error: `Oversell: ${totalRequested} bags requested across lines exceeds the lot's ${lot.bags.length} bags` },
+        400,
+      )
+    }
+
+    const buyerIds = [...new Set(lineSpecs.map((l) => l.buyerId))]
+
     // Resolve TradeConfig: shop defaults (issue #18), with per-customer
     // overrides layered on top (issue #17) — the same "per-invoice >
     // per-customer > global" precedence trade.ts's own resolve() applies,
-    // just assembled here before the pure engine runs.
-    const [shopConfig, farmerContact, buyerContact] = await Promise.all([
+    // just assembled here before the pure engine runs. Each buyer in a split
+    // sale can carry its own commission override.
+    const [shopConfig, farmerContact, buyerContacts] = await Promise.all([
       new ConfigRepository(c.env.DB).getConfig(),
       repo.getContact(lot.farmerId),
-      repo.getContact(input.buyerId),
+      Promise.all(buyerIds.map((id) => repo.getContact(id))),
     ])
+
+    const customerBuyerCommissionRate: Record<string, number> = {}
+    buyerIds.forEach((id, i) => {
+      const rate = buyerContacts[i]?.buyerCommissionRate
+      if (rate !== undefined) customerBuyerCommissionRate[id] = rate
+    })
 
     const config: TradeConfig = {
       farmerCommissionRate: shopConfig.farmerCommissionRate,
@@ -129,26 +199,30 @@ trades.openapi(
       ...(farmerContact?.commissionRate !== undefined
         ? { customerFarmerCommissionRate: { [lot.farmerId]: farmerContact.commissionRate } }
         : {}),
-      ...(buyerContact?.buyerCommissionRate !== undefined
-        ? { customerBuyerCommissionRate: { [input.buyerId]: buyerContact.buyerCommissionRate } }
-        : {}),
+      ...(Object.keys(customerBuyerCommissionRate).length ? { customerBuyerCommissionRate } : {}),
     }
+
+    // Slice the lot's bags by each line's bagCount, in weighing order.
+    let cursor = 0
+    const lines = lineSpecs.map((spec) => {
+      const bags = lot.bags.slice(cursor, cursor + spec.bagCount).map((b) => ({ grossKg: b.grossKg }))
+      cursor += spec.bagCount
+      return {
+        buyerId: spec.buyerId,
+        bags,
+        ratePerMaund: spec.ratePerMaund,
+        kattKgPerBag: spec.kattKgPerBag,
+        bagBearer: spec.bagBearer,
+        labourBearer: spec.labourBearer,
+      }
+    })
 
     const tradeEntry: TradeEntry = {
       id: input.entryId,
       farmerId: lot.farmerId,
       thekedarId: input.thekedarId,
       lotBags: lot.bags.length,
-      lines: [
-        {
-          buyerId: input.buyerId,
-          bags: lot.bags.map((b) => ({ grossKg: b.grossKg })),
-          ratePerMaund: input.ratePerMaund,
-          kattKgPerBag: input.kattKgPerBag,
-          bagBearer: input.bagBearer,
-          labourBearer: input.labourBearer,
-        },
-      ],
+      lines,
     }
 
     let result
@@ -159,11 +233,11 @@ trades.openapi(
     }
 
     // Ensure every touched account is registered before posting (FK) —
-    // farmer/buyer/thekedar plus the singleton revenue and government
+    // farmer/every buyer/thekedar plus the singleton revenue and government
     // (cess) accounts, which no route has ever needed to register until now.
     await Promise.all([
       repo.ensureAccount(zamindarAccount(lot.farmerId)),
-      repo.ensureAccount(pakkaAccount(input.buyerId)),
+      ...buyerIds.map((id) => repo.ensureAccount(pakkaAccount(id))),
       repo.ensureAccount(thekedarAccount(input.thekedarId)),
       repo.ensureAccount({ id: REVENUE_ID, kind: 'revenue' }),
       repo.ensureAccount(governmentAccount()),
@@ -186,7 +260,6 @@ trades.openapi(
         entryId: input.entryId,
         lotNumber: input.lotNumber,
         farmerId: lot.farmerId,
-        buyerId: input.buyerId,
         thekedarId: input.thekedarId,
         payableMaunds: result.payableMaunds,
         farmerBill: result.farmerBill,

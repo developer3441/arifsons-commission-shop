@@ -161,12 +161,20 @@ export interface TradeResult {
   entryId: string
   lotNumber: number
   farmerId: string
-  buyerId: string
   thekedarId: string
   payableMaunds: number
   farmerBill: FarmerBill
   buyerInvoices: BuyerInvoice[]
   settlement: TradeSettlement
+}
+
+export interface TradeLineInput {
+  buyerId: string
+  bagCount: number
+  ratePerMaund: number
+  kattKgPerBag?: number
+  bagBearer?: CostBearer
+  labourBearer?: CostBearer
 }
 
 export interface BardanaLoan {
@@ -242,12 +250,8 @@ export const api = {
   postTrade: (input: {
     entryId: string
     lotNumber: number
-    buyerId: string
     thekedarId: string
-    ratePerMaund: number
-    kattKgPerBag?: number
-    bagBearer?: CostBearer
-    labourBearer?: CostBearer
+    lines: TradeLineInput[]
   }) => post<TradeResult>('/trades', input),
 
   listBardanaLoans: () => get<BardanaLoan[]>('/bardana'),
