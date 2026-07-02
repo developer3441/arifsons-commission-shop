@@ -6,9 +6,12 @@ disable-model-invocation: true
 
 # Audit
 
-Run the **Scaffolding audit** (RULEBOOK R13): confirm the project's docs system exists *and* is
-internally consistent. This is a read-and-report pass — surface problems, propose fixes, but do NOT
-edit anything unless the user says so.
+Run the **Scaffolding audit**: confirm the project's docs system exists *and* is internally
+consistent. This is a read-and-report pass — surface problems, propose fixes, but do NOT edit
+anything unless the user says so.
+
+The purely mechanical rows are also enforced automatically by `npm run docs:lint` (a CI job) — run
+it first and fold its findings in; this skill adds the judgment checks a script can't do.
 
 ## Process
 
@@ -59,7 +62,7 @@ that layer is a finding — cite it. (A pure-library boundary that *is* the func
 
 Output a compact table: **# · item · ✅ pass / ❌ fail / ➖ N/A · offending file + one-line reason**.
 Then a short prioritized fix list. **Fix at the source, never patch a copy:** missing delivery boundary
-→ add the line to `architecture.md`; engine-only issues → extend acceptance to the boundary (RULEBOOK
-R4); dangling ADR ref → repoint per R9; duplication → replace the copy with a link.
+→ add the line to `architecture.md`; engine-only issues → extend acceptance to the boundary; dangling
+ADR ref → repoint it (blast-radius protocol: `docs/adr/0000-*` §6); duplication → replace the copy with a link.
 
 Do not apply fixes in this pass. End by asking which findings to fix.

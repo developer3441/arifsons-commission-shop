@@ -32,6 +32,9 @@ chat history. This ADR records the decision to use ADRs, and defines how we use 
      capability no issue covers → **open a new issue**. **Never rewrite closed/historical issues** —
      open a follow-up.
    - **Landmines (`CONTEXT.md`):** update a line only if its underlying fact changed.
+   - **Glossary (`docs/glossary.md`):** grep the ADR number there too — update any row whose fact
+     changed. The same sweep applies when a new ADR is **accepted**: flip any 🟡 open-question flag
+     that the new decision settles (enforced mechanically by `npm run docs:lint`).
    - **PRD (`docs/prd/`):** disposable snapshot — regenerate (`/to-prd`) only if the change is broad;
      skip for narrow ones.
    - **Doc cross-refs:** repoint live links, or rely on the superseded ADR's status banner to redirect.
