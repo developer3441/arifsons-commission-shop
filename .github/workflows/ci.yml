@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck -w backend
       - run: npm test -w backend
+      - run: npm run typecheck -w frontend
+      - run: npm test -w frontend
       - run: npm run build -w frontend
 
   docs-lint:

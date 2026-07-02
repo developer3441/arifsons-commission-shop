@@ -1,0 +1,42 @@
+{
+  "app": { "name": "SplitEase" },
+  "nav": {
+    "dashboard": "ڈیش بورڈ",
+    "ledgers": "کھاتے",
+    "contacts": "رابطے",
+    "more": "مزید",
+    "newTrade": "نیا سودا",
+    "issueAdvance": "پیشگی",
+    "recordPayment": "ادائیگی"
+  },
+  "dashboard": {
+    "cashInHand": "نقد موجود",
+    "trueShopValue": "اصل مالیت",
+    "reconciled": "حساب برابر ہے — اصل مالیت سرمائے اور منافع کے مطابق ہے۔",
+    "drift": "حساب میں فرق: {{amount}}۔ کچھ درست نہیں۔",
+    "ledgers": "کھاتے",
+    "quickActions": "فوری کام",
+    "noActivity": "ابھی کوئی لین دین نہیں۔"
+  },
+  "ledger": {
+    "rokar": "روکڑ · نقد",
+    "zamindar": "زمیندار · کاشتکار",
+    "beopari": "بیوپاری · اپنا مال",
+    "thekedar": "ٹھیکیدار · مزدور",
+    "pakka": "پکا · خریدار",
+    "revenue": "آمدنی",
+    "government": "سرکار · سیس"
+  },
+  "more": {
+    "bardana": "بردانہ",
+    "cess": "سرکار / سیس",
+    "godown": "گودام",
+    "corrections": "درستیاں",
+    "users": "صارفین",
+    "config": "دکان کی ترتیبات",
+    "genesis": "ابتدائی حساب"
+  },
+  "money": { "owesYou": "آپ کے لینے ہیں", "youOwe": "آپ کے دینے ہیں", "settled": "برابر", "heldForGovt": "سرکار کے لیے" },
+  "state": { "loading": "لوڈ ہو رہا ہے…", "error": "کوئی مسئلہ پیش آیا۔ دوبارہ کوشش کریں۔" },
+  "common": { "logout": "لاگ آؤٹ", "language": "زبان", "english": "English", "urdu": "اردو" }
+}

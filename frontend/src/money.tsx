@@ -1,36 +1,44 @@
-// Shared money-display conventions (design.md): "prefer shared components" —
-// every screen that shows a counterparty balance uses this, so the
-// colour + "owes you"/"you owe" label (never a bare +/− sign) stays
-// consistent across the app. Extracted from the Dashboard (issue #16) when
-// Contacts (issue #17) needed the same treatment for a single contact.
+import { useTranslation } from 'react-i18next'
+import { formatPkr } from './lib/format'
 
-export function formatPkr(amount: number): string {
-  return `PKR ${Math.abs(amount).toLocaleString('en-PK')}`
-}
+export { formatPkr } from './lib/format'
 
-// Ledgers that represent a two-party relationship (a balance that is either
-// owed *to* the shop or owed *by* the shop) get the "owes you"/"you owe"
-// treatment (ADR-0010 sign model: negative = receivable/asset, positive =
-// liability). Rokar/revenue/government are the shop's own pools, not a
-// counterparty balance, so they get a neutral magnitude label instead.
+// Shared money-display (design.md): colour + explicit "owes you"/"you owe"
+// label, never a bare +/− sign (ADR-0010 sign model: negative = receivable/
+// asset, positive = liability). Amount is wrapped in `.num` so it renders in
+// Western digits / Latin font in both languages (ADR-0030).
 const COUNTERPARTY_KINDS = new Set(['zamindar', 'pakka', 'thekedar', 'beopari'])
 
 export function MoneyLabel({ kind, balance }: { kind: string; balance: number }) {
+  const { t } = useTranslation()
+  const amount = <span className="num">{formatPkr(balance)}</span>
+
   if (COUNTERPARTY_KINDS.has(kind)) {
-    if (balance === 0) return <span style={{ color: '#666' }}>settled — {formatPkr(0)}</span>
+    if (balance === 0)
+      return (
+        <span className="text-[var(--color-muted)]">
+          {t('money.settled')} — {amount}
+        </span>
+      )
     const owesYou = balance < 0
     return (
-      <span style={{ color: owesYou ? '#1e7a34' : '#a53434', fontWeight: 600 }}>
-        {formatPkr(balance)} {owesYou ? '· owes you' : '· you owe'}
+      <span
+        className="font-semibold"
+        style={{ color: owesYou ? 'var(--color-owed-to-you)' : 'var(--color-you-owe)' }}
+      >
+        {amount} · {owesYou ? t('money.owesYou') : t('money.youOwe')}
       </span>
     )
   }
   if (kind === 'government') {
     return (
-      <span style={{ color: balance > 0 ? '#a53434' : '#666', fontWeight: 600 }}>
-        {formatPkr(balance)} {balance > 0 ? '· held for govt' : ''}
+      <span
+        className="font-semibold"
+        style={{ color: balance > 0 ? 'var(--color-you-owe)' : 'var(--color-muted)' }}
+      >
+        {amount} {balance > 0 ? `· ${t('money.heldForGovt')}` : ''}
       </span>
     )
   }
-  return <span style={{ fontWeight: 600 }}>{formatPkr(balance)}</span>
+  return <span className="font-semibold">{amount}</span>
 }

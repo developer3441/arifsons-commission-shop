@@ -1,0 +1,42 @@
+{
+  "app": { "name": "SplitEase" },
+  "nav": {
+    "dashboard": "Dashboard",
+    "ledgers": "Ledgers",
+    "contacts": "Contacts",
+    "more": "More",
+    "newTrade": "New Trade",
+    "issueAdvance": "Issue Advance",
+    "recordPayment": "Record Payment"
+  },
+  "dashboard": {
+    "cashInHand": "Cash in Hand",
+    "trueShopValue": "True Shop Value",
+    "reconciled": "Reconciled — True Shop Value matches seed capital + retained profit.",
+    "drift": "Reconciliation drift: {{amount}}. Something doesn't add up.",
+    "ledgers": "Ledgers",
+    "quickActions": "Quick actions",
+    "noActivity": "No ledger activity yet."
+  },
+  "ledger": {
+    "rokar": "Rokar · Cash",
+    "zamindar": "Zamindar · Farmers",
+    "beopari": "Beopari · House stock",
+    "thekedar": "Thekedar · Contractors",
+    "pakka": "Pakka · Buyers",
+    "revenue": "Amdani · Revenue",
+    "government": "Government · Cess"
+  },
+  "more": {
+    "bardana": "Bardana",
+    "cess": "Cess / Government",
+    "godown": "Godown",
+    "corrections": "Corrections",
+    "users": "Manage users",
+    "config": "Shop defaults",
+    "genesis": "Genesis"
+  },
+  "money": { "owesYou": "owes you", "youOwe": "you owe", "settled": "settled", "heldForGovt": "held for govt" },
+  "state": { "loading": "Loading…", "error": "Something went wrong. Try again in a moment." },
+  "common": { "logout": "Log out", "language": "Language", "english": "English", "urdu": "اردو" }
+}
