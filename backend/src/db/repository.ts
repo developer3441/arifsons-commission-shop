@@ -9,7 +9,7 @@
 // (ADR-0021) uses the entry's own id as the key: recordEntry is a no-op if
 // that id was already persisted.
 
-import { eq, sql, asc, and, like } from 'drizzle-orm'
+import { eq, sql, asc, desc, and, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from './schema'
 import type { Account, Entry, Posting, LedgerKind, EntryKind } from '../domain/posting'
@@ -110,6 +110,37 @@ export class Repository {
       after: row.after === null ? null : JSON.stringify(row.after),
       actorUserId: row.actor,
     })
+  }
+
+  /** One entry's current postings (issue #30) — the read side of a correction. */
+  async getEntry(id: string): Promise<Entry | undefined> {
+    const entryRows = await this.db.select({ kind: schema.entries.kind }).from(schema.entries).where(eq(schema.entries.id, id)).limit(1)
+    const entryRow = entryRows[0]
+    if (!entryRow) return undefined
+    const postingRows = await this.db
+      .select({ accountId: schema.postings.accountId, amount: schema.postings.amount })
+      .from(schema.postings)
+      .where(eq(schema.postings.entryId, id))
+      .orderBy(asc(schema.postings.id))
+    return {
+      id,
+      kind: entryRow.kind as EntryKind,
+      postings: postingRows.map((r) => ({ accountId: r.accountId, amount: pkr(r.amount) })),
+    }
+  }
+
+  /** The full change history, newest first (issue #30's Corrections & audit log screen). */
+  async listChangeLog(): Promise<(ChangeLogRow & { timestamp: string })[]> {
+    const rows = await this.db.select().from(schema.changeLog).orderBy(desc(schema.changeLog.createdAt))
+    return rows.map((r) => ({
+      id: r.id,
+      entryId: r.entryId,
+      action: r.action as 'edit' | 'delete',
+      before: JSON.parse(r.before) as Entry,
+      after: r.after ? (JSON.parse(r.after) as Entry) : null,
+      actor: r.actorUserId,
+      timestamp: new Date(r.createdAt * 1000).toISOString(),
+    }))
   }
 
   /**

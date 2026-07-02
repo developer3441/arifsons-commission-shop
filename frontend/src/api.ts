@@ -243,6 +243,22 @@ export interface CashBook {
   entries: CashBookLine[]
 }
 
+export interface EntryRecord {
+  id: string
+  kind: string
+  postings: { accountId: string; amount: number }[]
+}
+
+export interface ChangeLogRow {
+  id: string
+  entryId: string
+  action: 'edit' | 'delete'
+  before: EntryRecord
+  after: EntryRecord | null
+  actor: string
+  timestamp: string
+}
+
 export interface UserRecord {
   id: string
   name: string
@@ -307,6 +323,16 @@ export const api = {
   createUser: (id: string, name: string, username: string, password: string, role: Role) =>
     post<UserRecord>('/users', { id, name, username, password, role }),
   deactivateUser: (id: string) => patch<{ id: string; active: boolean }>(`/users/${id}/deactivate`),
+
+  getEntry: (id: string) => get<EntryRecord>(`/entries/${id}`),
+  getChangeLog: () => get<ChangeLogRow[]>('/changelog'),
+  editEntry: (entryId: string, reversalEntryId: string, correctedEntryId: string, postings: { accountId: string; amount: number }[]) =>
+    post<{ entryId: string; reversalEntryId: string; correctedEntryId: string; warning?: string }>(
+      `/entries/${entryId}/edit`,
+      { reversalEntryId, correctedEntryId, postings },
+    ),
+  deleteEntry: (entryId: string, reversalEntryId: string) =>
+    post<{ entryId: string; reversalEntryId: string; warning?: string }>(`/entries/${entryId}/delete`, { reversalEntryId }),
 
   payBuyer: (entryId: string, buyerId: string) =>
     post<{ entryId: string; buyerId: string; amount: number }>('/payments/buyer', { entryId, buyerId }),
