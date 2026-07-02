@@ -14,6 +14,7 @@ import { trades } from './routes/trades'
 import { cess } from './routes/cess'
 import { cash } from './routes/cash'
 import { godown } from './routes/godown'
+import { corrections } from './routes/corrections'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -43,6 +44,7 @@ app.route('/', trades)
 app.route('/', cess)
 app.route('/', cash)
 app.route('/', godown)
+app.route('/', corrections)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).

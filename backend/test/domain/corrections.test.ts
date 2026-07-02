@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { pkr } from '../../src/domain/money'
 import { rokarAccount, zamindarAccount, openingBalance, issuePeshiAdvance, balanceOf, type Entry } from '../../src/domain/posting'
-import { editEntry, deleteEntry, appendToChangeLog, type ChangeLogRow } from '../../src/domain/corrections'
+import { editEntry, deleteEntry, appendToChangeLog, reverseEntry, isEntrySettled, type ChangeLogRow } from '../../src/domain/corrections'
 
 // Issue #13 — corrections via mutable entries + an append-only change log.
 // Governing: ADR-0011.
@@ -128,5 +128,58 @@ describe('editing a settled entry surfaces a warning (issue #13)', () => {
     const stream: Entry[] = [issuePeshiAdvance('adv-1', farmer, pkr(200_000))]
     const { warning } = deleteEntry(stream, 'adv-1', 'owner', 't1', ['adv-1'])
     expect(warning).toMatch(/settled/i)
+  })
+})
+
+describe('reverseEntry — the append-only correction half (issue #30, ADR-0021)', () => {
+  it('negates every posting, cancelling the original entry when appended to the stream', () => {
+    const farmer = zamindarAccount('farmer-ali')
+    const original = issuePeshiAdvance('adv-1', farmer, pkr(200_000))
+
+    const reversal = reverseEntry('adv-1-reversal', original)
+    expect(reversal.id).toBe('adv-1-reversal')
+    expect(reversal.kind).toBe(original.kind)
+    expect(reversal.postings).toEqual(original.postings.map((p) => ({ accountId: p.accountId, amount: -p.amount })))
+
+    const stream: Entry[] = [original, reversal]
+    expect(balanceOf(stream, 'farmer-ali')).toBe(0) // fully cancelled, nothing rewritten
+  })
+
+  it('an edit = reversal + fresh corrected entry, appended, nets to the corrected value', () => {
+    const farmer = zamindarAccount('farmer-ali')
+    const original = issuePeshiAdvance('adv-1', farmer, pkr(200_000))
+    const corrected = issuePeshiAdvance('adv-1-corrected', farmer, pkr(150_000))
+    const reversal = reverseEntry('adv-1-reversal', original)
+
+    const stream: Entry[] = [original, reversal, corrected]
+    expect(balanceOf(stream, 'farmer-ali')).toBe(-150_000) // original never rewritten, just netted out
+  })
+})
+
+describe('isEntrySettled — downstream settling actions surface a warning (issue #30, ADR-0011)', () => {
+  it('is false when nothing downstream has touched the entry\'s accounts', () => {
+    const farmer = zamindarAccount('farmer-ali')
+    const stream: Entry[] = [issuePeshiAdvance('adv-1', farmer, pkr(200_000))]
+    expect(isEntrySettled(stream, 'adv-1')).toBe(false)
+  })
+
+  it('is true once a later buyer_payment/contractor_payout/cess_remittance touches the same account', () => {
+    const stream: Entry[] = [
+      { id: 'trade-1', kind: 'trade', postings: [{ accountId: 'buyer-1', amount: pkr(-100_000) }] },
+      { id: 'pay-1', kind: 'buyer_payment', postings: [{ accountId: 'rokar', amount: pkr(100_000) }, { accountId: 'buyer-1', amount: pkr(100_000) }] },
+    ]
+    expect(isEntrySettled(stream, 'trade-1')).toBe(true)
+  })
+
+  it('is false for a nonexistent entry id', () => {
+    expect(isEntrySettled([], 'nope')).toBe(false)
+  })
+
+  it('ignores a downstream entry that touches a different account entirely', () => {
+    const stream: Entry[] = [
+      { id: 'trade-1', kind: 'trade', postings: [{ accountId: 'buyer-1', amount: pkr(-100_000) }] },
+      { id: 'pay-other', kind: 'buyer_payment', postings: [{ accountId: 'rokar', amount: pkr(50_000) }, { accountId: 'buyer-2', amount: pkr(50_000) }] },
+    ]
+    expect(isEntrySettled(stream, 'trade-1')).toBe(false)
   })
 })

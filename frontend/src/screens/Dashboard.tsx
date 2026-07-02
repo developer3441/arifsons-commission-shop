@@ -89,6 +89,9 @@ export function Dashboard() {
           <Link to="/godown" style={{ marginRight: '1rem' }}>
             Godown
           </Link>
+          <Link to="/corrections" style={{ marginRight: '1rem' }}>
+            Corrections
+          </Link>
           {user?.role === 'owner' && (
             <>
               <Link to="/users" style={{ marginRight: '1rem' }}>
