@@ -16,7 +16,12 @@ Living UI conventions the agent follows when building the frontend. Read on dema
 ## Screens & navigation (map)
 
 The index of app screens — one line each. The full **spec** for a screen lives in its GitHub issue;
-the **visual** lives in Figma. Keep this list in sync as screens are added.
+the **visual** bar is the reference screen (ADR-0028). Keep this list in sync as screens are added.
+
+**Shell:** a **bottom tab bar** — Dashboard · Ledgers · Contacts · More — plus a prominent **center
+"+"** that opens quick actions (New Trade, Issue Advance, Record Payment). Owner-only and long-tail
+screens (Bardana, Cess, Godown, Corrections, Users, Config, Genesis) live under *More*. Mobile-first,
+thumb-reachable, RTL-mirrored ([ADR-0029](adr/0029-mobile-first-pwa.md)).
 
 **Auth**
 - **Login** — username + password; on success routes to the Dashboard (ADR-0025).
@@ -50,12 +55,32 @@ the **visual** lives in Figma. Keep this list in sync as screens are added.
 - **Configuration** — shop defaults: commission rates, Katt, labour rate, cess (with per-customer overrides).
 - **Genesis** — one-time opening-balances import for onboarding an existing shop (ADR-0022).
 
-## Stack
+## Stack & platform
 
 **Tailwind CSS + shadcn/ui** — decided in [ADR-0027](adr/0027-ui-stack-tailwind-shadcn.md).
 Tokens (incl. the fixed 7-ledger colour mapping) live as CSS variables in the Tailwind theme;
 shadcn components are copied into the repo. Inline `style={}` is not used for anything a token or
 shared component should own.
+
+**Mobile-first, installable PWA** ([ADR-0029](adr/0029-mobile-first-pwa.md)) — design every screen
+for a phone first; wider viewports are progressive enhancement, not the target.
+
+## Language & direction ([ADR-0030](adr/0030-bilingual-urdu-localization.md))
+
+- **Bilingual EN/UR, user-switchable, Urdu default.** Every string comes from an i18n message file
+  (`en`/`ur`) — **never hardcode UI text**.
+- **RTL-safe by construction:** CSS **logical properties** only (`margin-inline`, `inset-inline`, …),
+  never hard-coded `left`/`right`. Both directions from one stylesheet.
+- **Urdu font: Nastaliq** (self-hosted). Urdu mode uses a **larger base size + taller line-heights**;
+  give dense rows extra vertical room so Nastaliq doesn't clip.
+- **Numerals: Western digits (0-9) always**, both languages, in a Latin font span — money/weights
+  keep the same shape across the toggle.
+
+## Visual mood
+
+**Light mode only (v1), high-contrast, utilitarian** — legible in mandi-floor sunlight, fast to
+scan and enter. Warm-neutral surfaces; a single calm accent (deep teal/indigo — *not* green, which
+the ledger palette owns). Not a soft low-contrast SaaS look. Token *values* live in the config.
 
 ## Conventions
 
@@ -68,6 +93,11 @@ shared component should own.
   never a bare `+`/`−` sign. A negative farmer balance means "owes you", not a minus.
 - **Ledger identity:** each of the **7 ledgers** ([ADR-0004](adr/0004-cess-government-liability-pool.md)) appears as a
   consistent **colour-coded chip** across the app — the colour *values* live in the token config, the *mapping* is fixed.
+- **Entity selection (no raw IDs):** a farmer / buyer / contractor is chosen with the shared
+  **ContactPicker** — tap a field → full-screen search sheet → type a few letters of **name, id, or
+  phone** → tap the match. Raw-ID text boxes are never shown to the user; IDs are internal plumbing.
+  Backed by `GET /contacts?kind&q` (which must match name/id/phone — and contacts therefore carry a
+  **phone number**). Applies to New Trade, Issue Advance, Record Payment, Bardana, Genesis.
 - **Components:** prefer shared components; document a new pattern here as it emerges.
 
 ## Per-screen specs
