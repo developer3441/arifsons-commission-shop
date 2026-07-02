@@ -4,6 +4,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { Repository } from '../db/repository'
 import { pkr } from '../domain/money'
+import { assertSufficientCash, InsufficientCashError } from '../domain/guards'
 import {
   ROKAR_ID,
   issuePeshiAdvance,
@@ -103,12 +104,32 @@ ledger.openapi(
           },
         },
       },
+      400: { description: 'Advance would drive Rokar cash negative (ADR-0019)' },
     },
   }),
   async (c) => {
     const { entryId, farmerId, amount } = c.req.valid('json')
-    const entry = issuePeshiAdvance(entryId, zamindarAccount(farmerId), pkr(amount))
-    await new Repository(c.env.DB).recordEntry(entry, { actorUserId: c.get('userId') })
+    const repo = new Repository(c.env.DB)
+
+    // ADR-0019: reject at the API boundary, before any posting is written —
+    // Rokar can never go negative.
+    try {
+      assertSufficientCash(await repo.balanceOf(ROKAR_ID), pkr(amount))
+    } catch (err) {
+      if (err instanceof InsufficientCashError) {
+        return c.json({ error: err.message }, 400)
+      }
+      throw err
+    }
+
+    // Auto-register the farmer if this is their first touch (e.g. issuing an
+    // advance to a new farmer straight from the quick action, before they've
+    // been added as a Contact) — ensureAccount is idempotent either way.
+    const farmer = zamindarAccount(farmerId)
+    await repo.ensureAccount(farmer)
+
+    const entry = issuePeshiAdvance(entryId, farmer, pkr(amount))
+    await repo.recordEntry(entry, { actorUserId: c.get('userId') })
     return c.json({ entryId, farmerId, amount }, 201)
   },
 )

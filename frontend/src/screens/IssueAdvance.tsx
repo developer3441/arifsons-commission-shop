@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { MoneyLabel } from '../money'
 
 // Dashboard quick action → Issue Advance (Peshi). The backend route
 // (POST /advances) already exists (round 1 domain + round 2 persistence); this
@@ -12,6 +13,7 @@ export function IssueAdvance() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [newBalance, setNewBalance] = useState<number | null>(null)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -20,9 +22,16 @@ export function IssueAdvance() {
     try {
       const entryId = `advance-${farmerId}-${Date.now()}`
       await api.issueAdvance(entryId, farmerId, Number(amount))
+      const contact = await api.getContact(farmerId)
+      setNewBalance(contact.balance)
       setDone(true)
-    } catch {
-      setError('Could not post the advance. Check the farmer id and amount.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : ''
+      if (message.includes('Insufficient cash')) {
+        setError('Not enough cash in Rokar to cover this advance — Rokar can never go negative.')
+      } else {
+        setError('Could not post the advance. Check the farmer id and amount.')
+      }
     } finally {
       setBusy(false)
     }
@@ -35,12 +44,15 @@ export function IssueAdvance() {
       </p>
       <h1>Issue Advance</h1>
       {done ? (
-        <p role="status" style={{ color: '#1e7a34' }}>
-          Advance posted.{' '}
-          <button onClick={() => navigate('/')} style={{ marginLeft: '0.5rem' }}>
-            Back to Dashboard
-          </button>
-        </p>
+        <div role="status">
+          <p style={{ color: '#1e7a34' }}>Advance posted.</p>
+          {newBalance !== null && (
+            <p>
+              {farmerId}'s balance is now: <MoneyLabel kind="zamindar" balance={newBalance} />
+            </p>
+          )}
+          <button onClick={() => navigate('/')}>Back to Dashboard</button>
+        </div>
       ) : (
         <form onSubmit={onSubmit}>
           <label style={{ display: 'block', margin: '0.75rem 0' }}>
