@@ -173,3 +173,37 @@ export function cashBook(stream: readonly Entry[]): CashBookLine[] {
   }
   return lines
 }
+
+/** One line of a generic per-account statement (issue #31's ledger drill-down). */
+export interface AccountStatementLine {
+  entryId: string
+  kind: Entry['kind']
+  /** Signed amount this entry posted to the account. */
+  amount: PKR
+  /** The account's running balance immediately after this entry. */
+  balanceAfter: PKR
+}
+
+/**
+ * A generic drill-down for any of the 7 ledgers' accounts (issue #31,
+ * ADR-0004/0010): every entry that touched this one account, in stream
+ * order, with the running balance after each. Same "projection, never
+ * stored" pattern as farmerStatement (settlement.ts, issue #26) and
+ * cashBook (issue #27) — kept as its own function rather than reusing
+ * those two so this generic Ledgers screen doesn't couple to either's
+ * kind-specific behaviour (farmerStatement's settlement cascade only makes
+ * sense for a Zamindar account; cashBook is Rokar-only).
+ */
+export function accountStatement(stream: readonly Entry[], accountId: string): AccountStatementLine[] {
+  const touching = entriesForAccount(stream, accountId)
+  let balance = pkr(0)
+  const lines: AccountStatementLine[] = []
+  for (const entry of touching) {
+    const amount = entry.postings
+      .filter((p) => p.accountId === accountId)
+      .reduce((sum, p) => addPkr(sum, p.amount), pkr(0))
+    balance = addPkr(balance, amount)
+    lines.push({ entryId: entry.id, kind: entry.kind, amount, balanceAfter: balance })
+  }
+  return lines
+}

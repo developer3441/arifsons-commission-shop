@@ -243,6 +243,23 @@ export interface CashBook {
   entries: CashBookLine[]
 }
 
+export interface LedgerSummary {
+  kind: string
+  balance: number
+}
+
+export interface LedgerAccountSummary {
+  id: string
+  name?: string
+  balance: number
+}
+
+export interface AccountStatement {
+  accountId: string
+  balance: number
+  entries: { entryId: string; kind: string; amount: number; balanceAfter: number }[]
+}
+
 export interface EntryRecord {
   id: string
   kind: string
@@ -333,6 +350,10 @@ export const api = {
     ),
   deleteEntry: (entryId: string, reversalEntryId: string) =>
     post<{ entryId: string; reversalEntryId: string; warning?: string }>(`/entries/${entryId}/delete`, { reversalEntryId }),
+
+  listLedgers: () => get<LedgerSummary[]>('/ledgers'),
+  listLedgerAccounts: (kind: string) => get<LedgerAccountSummary[]>(`/ledgers/${kind}/accounts`),
+  getAccountStatement: (id: string) => get<AccountStatement>(`/ledgers/accounts/${encodeURIComponent(id)}/entries`),
 
   payBuyer: (entryId: string, buyerId: string) =>
     post<{ entryId: string; buyerId: string; amount: number }>('/payments/buyer', { entryId, buyerId }),
