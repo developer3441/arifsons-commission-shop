@@ -35,6 +35,7 @@ the **visual** lives in Figma. Keep this list in sync as screens are added.
   advance / withdrawal, bardana lent out.
 - **Rokar cash book** — cash in/out with a running balance.
 - **Cess / Government** — cess held (liability) + "remit to government" action.
+- **Godown (stock)** — house stock bought at cost (Beopari), resale flow, trading P&L (ADR-0005).
 
 **Actions (modals / flows)**
 - **Issue Advance (Peshi)** — interest-free cash advance to a farmer.
@@ -44,6 +45,10 @@ the **visual** lives in Figma. Keep this list in sync as screens are added.
 **Documents & records**
 - **Bill / Invoice view** — printable Kacha bill (farmer) & Pakka invoice (buyer).
 - **Corrections & audit log** — chronological change history (append-only record).
+
+**Setup (one-time / rare)**
+- **Configuration** — shop defaults: commission rates, Katt, labour rate, cess (with per-customer overrides).
+- **Genesis** — one-time opening-balances import for onboarding an existing shop (ADR-0022).
 
 ## Stack
 
