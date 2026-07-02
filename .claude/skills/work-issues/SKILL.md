@@ -19,7 +19,8 @@ Repeat until no unblocked open issue remains:
    *unblocked* only when every issue it lists is **CLOSED**. Choose the lowest-numbered unblocked one.
 3. **Work it** — see *Per issue* below.
 4. **Finish it** per CLAUDE.md's definition of done: tick the acceptance-criteria boxes (each
-   against the test that proves it) → commit + push → close with a note referencing the commit.
+   against the test that proves it) → commit on an issue branch → push → open a PR → merge once
+   CI is green → close with a note referencing the PR. `main` is protected; direct pushes fail.
 
 When no unblocked issue is left, **stop** and report what's done and what's still blocked (and why).
 

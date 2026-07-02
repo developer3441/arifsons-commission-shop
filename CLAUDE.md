@@ -24,4 +24,4 @@
 
 *Test-first is the default for domain/business logic — drive it with the `tdd` skill (the red-green method lives there). Skip only for trivial/exploratory code.*
 
-*Finishing an issue: tick its acceptance-criteria boxes (each against the test that proves it), then commit + push + close.*
+*Finishing an issue: tick its acceptance-criteria boxes (each against the test that proves it), then commit on an issue branch → push → open a PR → merge when CI is green → close. `main` is protected — never push to it directly; CI passing on the PR is the definition of done.*
