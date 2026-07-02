@@ -220,6 +220,18 @@ export interface ContactRecord {
   balance: number
 }
 
+export interface CashBookLine {
+  entryId: string
+  kind: string
+  amount: number
+  balanceAfter: number
+}
+
+export interface CashBook {
+  balance: number
+  entries: CashBookLine[]
+}
+
 export interface UserRecord {
   id: string
   name: string
@@ -284,4 +296,12 @@ export const api = {
   createUser: (id: string, name: string, username: string, password: string, role: Role) =>
     post<UserRecord>('/users', { id, name, username, password, role }),
   deactivateUser: (id: string) => patch<{ id: string; active: boolean }>(`/users/${id}/deactivate`),
+
+  payBuyer: (entryId: string, buyerId: string) =>
+    post<{ entryId: string; buyerId: string; amount: number }>('/payments/buyer', { entryId, buyerId }),
+  withdrawForFarmer: (entryId: string, farmerId: string, amount: number) =>
+    post<{ entryId: string; farmerId: string; amount: number }>('/payments/withdrawal', { entryId, farmerId, amount }),
+  payoutContractor: (entryId: string, thekedarId: string) =>
+    post<{ entryId: string; thekedarId: string; amount: number }>('/payments/payout', { entryId, thekedarId }),
+  getCashBook: () => get<CashBook>('/rokar/cashbook'),
 }

@@ -12,6 +12,7 @@ import { bardana } from './routes/bardana'
 import { lots } from './routes/lots'
 import { trades } from './routes/trades'
 import { cess } from './routes/cess'
+import { cash } from './routes/cash'
 import { auth } from './routes/auth'
 import { users } from './routes/users'
 import { requireAuth, type AuthedVariables } from './routes/middleware'
@@ -39,6 +40,7 @@ app.route('/', bardana)
 app.route('/', lots)
 app.route('/', trades)
 app.route('/', cess)
+app.route('/', cash)
 
 // The OpenAPI document — generated from the routes, the contract every client
 // generates from (ADR-0016).

@@ -143,3 +143,33 @@ export function reconcile(
 export function entriesForAccount(stream: readonly Entry[], accountId: string): Entry[] {
   return stream.filter((entry) => entry.postings.some((p) => p.accountId === accountId))
 }
+
+/** One line of the Rokar cash book (issue #27). */
+export interface CashBookLine {
+  entryId: string
+  kind: Entry['kind']
+  /** Signed amount this entry moved through Rokar: positive = cash in, negative = cash out. */
+  amount: PKR
+  /** The running Rokar balance immediately after this entry. */
+  balanceAfter: PKR
+}
+
+/**
+ * The Rokar cash book (issue #27): every entry that moved physical cash, in
+ * stream order, with a running balance. A projection only — never stored,
+ * always derived fresh from the posting stream (architecture.md), same
+ * pattern as farmerStatement (settlement.ts).
+ */
+export function cashBook(stream: readonly Entry[]): CashBookLine[] {
+  const touching = entriesForAccount(stream, ROKAR_ID)
+  let balance = pkr(0)
+  const lines: CashBookLine[] = []
+  for (const entry of touching) {
+    const amount = entry.postings
+      .filter((p) => p.accountId === ROKAR_ID)
+      .reduce((sum, p) => pkr(sum + p.amount), pkr(0))
+    balance = pkr(balance + amount)
+    lines.push({ entryId: entry.id, kind: entry.kind, amount, balanceAfter: balance })
+  }
+  return lines
+}
