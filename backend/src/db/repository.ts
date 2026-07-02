@@ -441,3 +441,65 @@ export class BardanaRepository {
   }
 }
 
+export interface LotRecord {
+  lotNumber: number
+  farmerId: string
+  businessDate: string
+  bags: { grossKg: number }[]
+}
+
+/**
+ * Lot registration and weighing (issue #22, ADR-0002/0003) — the front half
+ * of the New Trade flow. A lot has no ledger postings of its own; it becomes
+ * money only when sold (issue #23).
+ */
+export class LotRepository {
+  private readonly db: ReturnType<typeof drizzle<typeof schema>>
+
+  constructor(d1: D1Database) {
+    this.db = drizzle(d1, { schema })
+  }
+
+  /** Register a new lot against a farmer. The lot number is sequential (SQLite autoincrement). */
+  async createLot(
+    farmerId: string,
+    businessDate?: string,
+  ): Promise<{ lotNumber: number; farmerId: string; businessDate: string }> {
+    const values: typeof schema.lots.$inferInsert = { farmerId }
+    if (businessDate) values.businessDate = businessDate
+    const [row] = await this.db
+      .insert(schema.lots)
+      .values(values)
+      .returning({ lotNumber: schema.lots.lotNumber, businessDate: schema.lots.businessDate })
+    return { lotNumber: row!.lotNumber, farmerId, businessDate: row!.businessDate }
+  }
+
+  /** Record one weighed bag's gross kg against a lot. */
+  async addBag(lotNumber: number, grossKg: number): Promise<void> {
+    await this.db.insert(schema.lotBags).values({ lotNumber, grossKg })
+  }
+
+  /** One lot with every bag weighed against it so far, in weighing order. */
+  async getLot(lotNumber: number): Promise<LotRecord | undefined> {
+    const lotRows = await this.db.select().from(schema.lots).where(eq(schema.lots.lotNumber, lotNumber)).limit(1)
+    const lot = lotRows[0]
+    if (!lot) return undefined
+    const bagRows = await this.db
+      .select({ grossKg: schema.lotBags.grossKg })
+      .from(schema.lotBags)
+      .where(eq(schema.lotBags.lotNumber, lotNumber))
+      .orderBy(asc(schema.lotBags.id))
+    return { lotNumber: lot.lotNumber, farmerId: lot.farmerId, businessDate: lot.businessDate, bags: bagRows }
+  }
+
+  /** Every lot, optionally filtered to one farmer — newest first (for picking a lot to sell, issue #23). */
+  async listLots(farmerId?: string): Promise<Pick<LotRecord, 'lotNumber' | 'farmerId' | 'businessDate'>[]> {
+    const rows = farmerId
+      ? await this.db.select().from(schema.lots).where(eq(schema.lots.farmerId, farmerId))
+      : await this.db.select().from(schema.lots)
+    return rows
+      .map((r) => ({ lotNumber: r.lotNumber, farmerId: r.farmerId, businessDate: r.businessDate }))
+      .sort((a, b) => b.lotNumber - a.lotNumber)
+  }
+}
+

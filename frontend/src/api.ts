@@ -112,6 +112,26 @@ export interface GenesisInput {
   contractorBalances: GenesisBalance[]
 }
 
+export interface LotBag {
+  grossKg: number
+  payableKg: number
+}
+
+export interface LotDetail {
+  lotNumber: number
+  farmerId: string
+  businessDate: string
+  bags: LotBag[]
+  kattKgPerBag: number
+  payableMaunds: number
+}
+
+export interface LotSummary {
+  lotNumber: number
+  farmerId: string
+  businessDate: string
+}
+
 export interface BardanaLoan {
   farmerId: string
   bagsOut: number
@@ -176,6 +196,11 @@ export const api = {
   setConfig: (update: Partial<ShopConfig>) => put<ShopConfig>('/config', update),
 
   postGenesis: (input: GenesisInput) => post<{ id: string; postings: number }>('/genesis', input),
+
+  createLot: (farmerId: string) => post<LotSummary>('/lots', { farmerId }),
+  weighBag: (lotNumber: number, grossKg: number) => post<LotDetail>(`/lots/${lotNumber}/bags`, { grossKg }),
+  getLot: (lotNumber: number) => get<LotDetail>(`/lots/${lotNumber}`),
+  listLots: (farmerId?: string) => get<LotSummary[]>(`/lots${farmerId ? `?farmerId=${encodeURIComponent(farmerId)}` : ''}`),
 
   listBardanaLoans: () => get<BardanaLoan[]>('/bardana'),
   lendBardana: (entryId: string, farmerId: string, bags: number, bagValue?: number) =>

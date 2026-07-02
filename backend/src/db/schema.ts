@@ -83,6 +83,34 @@ export const bardanaLoans = sqliteTable('bardana_loans', {
   bagValue: integer('bag_value').notNull(), // whole PKR per bag, from the most recent lend (ADR-0009)
 })
 
+/**
+ * A registered Lot (issue #22, ADR-0002/0003): a farmer's arriving produce,
+ * given a sequential number, weighed bag by bag. Pre-sale state — a lot has
+ * no ledger postings of its own; it only becomes money when it's sold
+ * (issue #23, the back half of the New Trade flow).
+ */
+export const lots = sqliteTable('lots', {
+  lotNumber: integer('lot_number').primaryKey({ autoIncrement: true }),
+  farmerId: text('farmer_id')
+    .notNull()
+    .references(() => accounts.id),
+  businessDate: text('business_date')
+    .notNull()
+    .default(sql`(date('now', '+5 hours'))`),
+  createdAt: integer('created_at')
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+/** One weighed bag belonging to a lot — gross kg as weighed (taulai), ADR-0002. */
+export const lotBags = sqliteTable('lot_bags', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  lotNumber: integer('lot_number')
+    .notNull()
+    .references(() => lots.lotNumber),
+  grossKg: real('gross_kg').notNull(),
+})
+
 export const entries = sqliteTable('entries', {
   id: text('id').primaryKey(), // also the idempotency key (ADR-0021)
   kind: text('kind').notNull(),
