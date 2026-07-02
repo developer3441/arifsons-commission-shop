@@ -9,6 +9,7 @@ declare global {
       DB: D1Database
       TEST_MIGRATIONS: D1Migration[]
       AUTH_SECRET: string
+      BACKUP_BUCKET: R2Bucket
     }
   }
 }

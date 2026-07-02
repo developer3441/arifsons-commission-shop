@@ -19,5 +19,18 @@
   // committed here. Tests supply their own fixed secret (vitest.config.ts).
   "vars": {
     "AUTH_SECRET": "dev-only-placeholder-override-with-wrangler-secret-put"
+  },
+  // Daily D1 -> R2 backup export (issue #32, ADR-0024): durable off-database
+  // copies beyond D1 Time Travel's ~30-day window. The bucket must exist
+  // (`wrangler r2 bucket create splitease-backups`) before first deploy.
+  "r2_buckets": [
+    {
+      "binding": "BACKUP_BUCKET",
+      "bucket_name": "splitease-backups"
+    }
+  ],
+  // Daily at 20:00 UTC (01:00 PKT) — off-hours for a Pakistani mandi shop.
+  "triggers": {
+    "crons": ["0 20 * * *"]
   }
 }
