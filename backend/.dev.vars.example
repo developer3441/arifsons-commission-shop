@@ -1,3 +1,0 @@
-# Local-dev secrets for `wrangler dev` — copy to backend/.dev.vars (gitignored).
-# Production values are set with `wrangler secret put <NAME>`, never committed (ADR-0025).
-AUTH_SECRET=dev-only-change-me

@@ -7,19 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck -w backend
-      - run: npm test -w backend
-      - run: npm run build -w frontend
-
   docs-lint:
     runs-on: ubuntu-latest
     steps:
@@ -28,3 +15,17 @@ jobs:
         with:
           node-version: 24
       - run: node scripts/docs-lint.mjs
+
+  # Uncomment and adapt once code lands (README step 6), then add this job's
+  # name to the branch-protection required checks alongside docs-lint.
+  # test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 24
+  #         cache: npm
+  #     - run: npm ci
+  #     - run: npm run typecheck
+  #     - run: npm test

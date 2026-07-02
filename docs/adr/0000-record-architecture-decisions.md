@@ -1,6 +1,6 @@
 # ADR-0000 — Record architecture decisions (conventions)
 
-**Status:** accepted · **Date:** 2026-06-30
+**Status:** accepted · **Date:** <date>
 
 ## Context
 

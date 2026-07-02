@@ -30,14 +30,14 @@ Work it exactly as CLAUDE.md prescribes — don't improvise a different process:
 
 - Read the issue's **acceptance criteria** and its **Governing ADRs**; build to the ADRs, not assumptions.
 - Implement **test-first** (red → green), one behavior at a time — the `tdd` skill is the method.
-- Verify green before considering it done: `npm test -w backend` and `npm run typecheck -w backend`.
-- Respect the architecture: the pure engine lives in `backend/src/domain/` (no I/O); imports point
-  inward (`routes/` → `db/` → `domain/`).
+- Verify green before considering it done: run the project's **test** and **typecheck** commands
+  (see the root README / package.json scripts).
+- Respect the architecture and dependency rules declared in `docs/architecture.md`.
 
 ## Guardrails
 
 - **ADR wins.** If an issue is ambiguous or conflicts with an ADR, **stop, comment on the issue**
   explaining the blocker, and move to the next unblocked one — never guess or invent scope.
-- **Never** run tests or writes against the **remote D1** — tests use a local throwaway Miniflare D1.
+- **Never** run tests or writes against **production data stores** — tests use local throwaway databases only.
 - Never commit secrets. Get every domain specific from the ADRs / CONTEXT.md, not memory.
 - One issue at a time; don't batch.
