@@ -14,7 +14,7 @@ import { postTradeEntry, type TradeEntry, type TradeConfig } from '../../src/dom
 import { buyerPayment, contractorPayout } from '../../src/domain/cash'
 import { lendBardana, resolveBardanaLoan, type BardanaLoan } from '../../src/domain/bardana'
 import { HOUSE_BUYER_ID, emptyGodown, receiveStock, resellStock, houseBuyCost, postStockResale } from '../../src/domain/godown'
-import { cashInHand, trueShopValue, retainedProfit, reconcile, entriesForAccount } from '../../src/domain/dashboard'
+import { cashInHand, trueShopValue, retainedProfit, reconcile, entriesForAccount, cashBook } from '../../src/domain/dashboard'
 
 // Issue #12 — Dashboard + reconciliation oracle (capstone). Governing:
 // ADR-0010 (full balance sheet, reconciliation invariant).
@@ -207,5 +207,27 @@ describe('reconciliation invariant across a multi-entry scenario (issue #12)', (
     // spot-checks on the pieces that make it up
     expect(cashInHand(stream)).toBe(978_000) // 1,000,000 − 100,000 + 80,000 − 2,000
     expect(retainedProfit(stream)).toBe(3_400) // 1,600 (trade1) + 500 (trade3 bag charge) + 1,300 (resale P&L)
+  })
+})
+
+describe('cashBook — the Rokar running cash-in/cash-out ledger (issue #27)', () => {
+  it('lists only entries that moved cash through Rokar, in order, with a running balance', () => {
+    const rokar = rokarAccount()
+    const farmer = zamindarAccount('farmer-cashbook-1')
+
+    const stream: Entry[] = [
+      openingBalance('open-cb1', rokar, pkr(500_000)),
+      issuePeshiAdvance('adv-cb1', farmer, pkr(50_000)), // cash out
+      { id: 'no-rokar-entry', kind: 'trade', postings: [{ accountId: 'buyer-x', amount: pkr(1000) }] }, // excluded
+    ]
+
+    const book = cashBook(stream)
+    expect(book).toHaveLength(2)
+    expect(book[0]).toEqual({ entryId: 'open-cb1', kind: 'opening_balance', amount: 500_000, balanceAfter: 500_000 })
+    expect(book[1]).toEqual({ entryId: 'adv-cb1', kind: 'peshi_advance', amount: -50_000, balanceAfter: 450_000 })
+  })
+
+  it('returns an empty cash book when Rokar has never been touched', () => {
+    expect(cashBook([])).toEqual([])
   })
 })
