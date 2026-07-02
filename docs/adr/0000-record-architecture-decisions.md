@@ -35,8 +35,9 @@ chat history. This ADR records the decision to use ADRs, and defines how we use 
    - **Glossary (`docs/glossary.md`):** grep the ADR number there too — update any row whose fact
      changed. The same sweep applies when a new ADR is **accepted**: flip any 🟡 open-question flag
      that the new decision settles (enforced mechanically by `npm run docs:lint`).
-   - **PRD (`docs/prd/`):** disposable snapshot — regenerate (`/to-prd`) only if the change is broad;
-     skip for narrow ones.
+   - **PRD (`docs/prd/current.md`):** ephemeral scaffold, usually absent (deleted once its issues are
+     cut). **Not** a blast-radius target — the work SSOT is the **issues**. Regenerate via `/to-prd`
+     only if you are actively re-slicing an epic.
    - **Doc cross-refs:** repoint live links, or rely on the superseded ADR's status banner to redirect.
 
 ## Consequences

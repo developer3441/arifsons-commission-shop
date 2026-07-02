@@ -60,6 +60,10 @@ For each approved slice, publish a new issue to the issue tracker. Use the issue
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
 
+Each issue must be **self-sufficient** — its acceptance criteria + governing ADRs + (for screens) the visual reference are everything an agent needs. Issues cite **ADRs, never the PRD**: the PRD is ephemeral scaffolding. If an issue can't be understood without the PRD, it is under-specified — fix the issue, don't lean on the PRD.
+
+**After all issues are published, delete the source PRD** (`docs/prd/current.md`) — its job is done and it is rebuildable via `/to-prd`. This keeps exactly zero stale PRDs around.
+
 <issue-template>
 ## Parent
 
