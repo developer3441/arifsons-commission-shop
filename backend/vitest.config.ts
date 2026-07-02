@@ -22,6 +22,10 @@ export default defineConfig(async () => {
     test: {
       include: ['test/**/*.test.ts'],
       setupFiles: ['./test/apply-migrations.ts'],
+      // Integration tests run through workerd + D1; on slow CI runners the
+      // heaviest ones brush vitest's 5s default and flake. Real hangs still
+      // fail — just with a ceiling that matches the runtime's actual cost.
+      testTimeout: 15_000,
     },
   }
 })
