@@ -25,7 +25,7 @@ the pieces fit and **where the live truth is** (schema, endpoints). Keep it high
 
 ## Data flow (one trade)
 
-1. Client POSTs a trade entry → Hono route validates with **Zod**.
+1. Client POSTs a trade as **one self-contained idempotent submission** carrying the lot + bag weights + buyer lines (ADR-0032) → Hono route validates with **Zod**. Offline, safe writes queue in IndexedDB and replay on reconnect (ADR-0031); the client shows a display-only preview, the server stays authoritative.
 2. The **pure posting engine** (`postTradeEntry`) returns `{ postings[], farmerBill, buyerInvoices[] }`.
 3. Backend writes the entry + **append-only postings** in one **D1 transaction** (ADR-0014).
 4. The 7 ledgers, bills, and dashboards are **projections** read back from the posting stream (ADR-0010).

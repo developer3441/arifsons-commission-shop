@@ -14,3 +14,4 @@ the mandi floor fans out across **7 ledgers**, tracking *Cash in Hand* and *True
 - **Money** = whole PKR rupees; **weight** = 0.01 kg; round once at the line total (ADR-0009)
 - **Ledgers are projections** of an immutable posting stream — never written directly (ADR-0010 / PRD)
 - **UI is mobile-first & bilingual Urdu/RTL** — never build desktop-only or LTR-only; strings come from i18n files, digits stay Western (ADR-0029/0030)
+- **Cash-outs require a live connection** — only safe writes (trades, bardana, non-cash corrections) queue offline; advance/withdrawal/payout/cess-remit never queue (Rokar guard) (ADR-0031)

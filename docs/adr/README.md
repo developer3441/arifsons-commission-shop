@@ -38,6 +38,8 @@ The catalog of decisions. **Conventions & status lifecycle:** see
 | 0028 | Visual truth: design.md conventions + reference screen (no per-screen Figma) | technical | accepted |
 | 0029 | Mobile-first web app, installable PWA | technical | accepted |
 | 0030 | Bilingual English/Urdu UI: i18n, RTL, Nastaliq, Western digits | technical | accepted |
+| 0031 | Offline: Tier-1 resilient write-queue (safe writes only, cash-outs online) | technical | accepted |
+| 0032 | A trade is one self-contained idempotent submission | technical | accepted |
 
 **Open / planned:** the finance NFRs are decided — data integrity ([ADR-0021](0021-ledger-write-integrity.md)),
 backup/retention ([ADR-0024](0024-backup-and-retention.md)), security/auth

@@ -28,8 +28,7 @@ largely reframes that — the web app itself becomes the phone experience.
 - Every screen is designed for a phone first; the reference screen (ADR-0028) is a phone layout.
 - Reduces the need for a separate native `mobile/` app; architecture.md's "future mobile" note is
   reframed, not deleted.
-- **Offline-capable queue-and-sync is the intended product direction** (chosen 2026-07-02) but its
-  design — client-side engine execution, client-generated IDs, sync/conflict resolution — is
-  **deferred to a dedicated ADR** and collides with ADR-0018 (no shared package) / ADR-0019 /
-  ADR-0022; until that ADR lands the PWA is **online-required in practice**. The ADR-0021
-  idempotency keys keep that retrofit safe.
+- **Offline capability is now specified** as a Tier-1 resilient write-queue in
+  [ADR-0031](0031-offline-write-queue.md) (safe writes queue offline; cash-outs stay online) with the
+  trade-submission change in [ADR-0032](0032-atomic-trade-submission.md). Tier-1 deliberately does
+  **not** amend ADR-0018 (no client-side engine). A future full-offline Tier-2 remains possible.
