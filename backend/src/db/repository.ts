@@ -9,7 +9,7 @@
 // (ADR-0021) uses the entry's own id as the key: recordEntry is a no-op if
 // that id was already persisted.
 
-import { eq, sql, asc, desc, and, like } from 'drizzle-orm'
+import { eq, sql, asc, desc, and, or, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from './schema'
 import type { Account, Entry, Posting, LedgerKind, EntryKind } from '../domain/posting'
@@ -189,6 +189,7 @@ export class Repository {
     id: string
     kind: LedgerKind
     name?: string
+    phone?: string
     commissionRate?: number
     buyerCommissionRate?: number
     bagBearer?: CostBearer
@@ -199,6 +200,7 @@ export class Repository {
       id: input.id,
       kind: input.kind,
       name: input.name ?? null,
+      phone: input.phone ?? null,
       commissionRate: input.commissionRate ?? null,
       buyerCommissionRate: input.buyerCommissionRate ?? null,
       bagBearer: input.bagBearer ?? null,
@@ -219,10 +221,24 @@ export class Repository {
     return { ...toContactRecord(row), balance: await this.balanceOf(id) }
   }
 
-  /** Search contacts of one kind by name (case-insensitive substring) — the Contacts screen list. */
+  /**
+   * Search contacts of one kind, matching the query (case-insensitive substring)
+   * against name OR id OR phone — the Contacts screen list and the ContactPicker
+   * seam (issue #53, design.md). id is never shown as a raw box to the user, but
+   * it's a valid handle to search by.
+   */
   async listContacts(kind: LedgerKind, query?: string): Promise<ContactRecord[]> {
     const conditions = [eq(schema.accounts.kind, kind)]
-    if (query) conditions.push(like(sql`lower(${schema.accounts.name})`, `%${query.toLowerCase()}%`))
+    if (query) {
+      const needle = `%${query.toLowerCase()}%`
+      conditions.push(
+        or(
+          like(sql`lower(${schema.accounts.name})`, needle),
+          like(sql`lower(${schema.accounts.id})`, needle),
+          like(sql`lower(${schema.accounts.phone})`, needle),
+        )!,
+      )
+    }
     const rows = await this.db
       .select()
       .from(schema.accounts)
@@ -237,6 +253,7 @@ export interface ContactRecord {
   id: string
   kind: LedgerKind
   name?: string
+  phone?: string
   commissionRate?: number
   buyerCommissionRate?: number
   bagBearer?: CostBearer
@@ -250,6 +267,7 @@ function toContactRecord(row: typeof schema.accounts.$inferSelect): Omit<Contact
     id: row.id,
     kind: row.kind as LedgerKind,
     name: row.name ?? undefined,
+    phone: row.phone ?? undefined,
     commissionRate: row.commissionRate ?? undefined,
     buyerCommissionRate: row.buyerCommissionRate ?? undefined,
     bagBearer: (row.bagBearer as CostBearer | null) ?? undefined,

@@ -105,6 +105,30 @@ describe('Contacts API', () => {
     expect(contractorIds).toContain('thekedar-saeed')
   })
 
+  it('round-trips a phone number and finds the contact by phone, id, or name (#53)', async () => {
+    const token = await loginAsBookkeeper('contacts-phone')
+    const auth = { headers: { authorization: `Bearer ${token}` } }
+
+    const create = await app.request(
+      '/contacts',
+      json({ id: 'farmer-yusuf', kind: 'zamindar', name: 'Yusuf Ali', phone: '0300-1234567' }, token),
+      env,
+    )
+    expect(create.status).toBe(201)
+    expect(((await create.json()) as { phone?: string }).phone).toBe('0300-1234567')
+
+    const read = await app.request('/contacts/farmer-yusuf', auth, env)
+    expect(((await read.json()) as { phone?: string }).phone).toBe('0300-1234567')
+
+    // q matches phone (a digit substring), id (the 'farmer-' prefix is unique to
+    // the id, not the name/phone), and name — all case-insensitive.
+    for (const q of ['1234567', 'FARMER-YUS', 'yusuf ali']) {
+      const search = await app.request(`/contacts?kind=zamindar&q=${encodeURIComponent(q)}`, auth, env)
+      const ids = ((await search.json()) as { id: string }[]).map((r) => r.id)
+      expect(ids, `q=${q}`).toContain('farmer-yusuf')
+    }
+  })
+
   it('editing an existing contact updates its overrides in place', async () => {
     const token = await loginAsBookkeeper('contacts-3')
     await app.request('/contacts', json({ id: 'farmer-edit-me', kind: 'zamindar', commissionRate: 0.02 }, token), env)

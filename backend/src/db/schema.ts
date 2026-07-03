@@ -37,6 +37,9 @@ export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),
   name: text('name'),
+  // Contact phone (issue #53) — free text (formatting varies); searchable
+  // alongside name and id so a contact can be found by any of the three.
+  phone: text('phone'),
   // Zamindar-only: overrides TradeConfig.farmerCommissionRate for this farmer.
   commissionRate: real('commission_rate'),
   // Pakka-only: overrides TradeConfig.buyerCommissionRate for this buyer.

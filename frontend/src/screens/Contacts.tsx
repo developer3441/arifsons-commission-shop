@@ -1,22 +1,41 @@
-import { Fragment, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api, type ContactKind, type ContactRecord, type CostBearer, type FarmerStatement, type StatementLine } from '../api'
 import { MoneyLabel, formatPkr } from '../money'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { cn } from '../lib/utils'
 
-// Issue #17 — Contacts: search farmers/buyers/contractors by role, create or
-// edit one (with per-customer commission/cost-bearer/Katt overrides —
-// ADR-0001/0003/0012), and open a contact to see its running balance
-// (design.md: colour + "owes you"/"you owe", never a bare +/− sign).
+// Issue #17 / #53 — Contacts: search farmers/buyers/contractors by role and by
+// name / id / phone (all three via GET /contacts?q — design.md ContactPicker
+// seam), create or edit one (with per-customer overrides — ADR-0001/0003/0012),
+// and open a contact to see its running balance. Mobile-first, bilingual, tokens
+// (ADR-0027/0029/0030); money shown as colour + "owes you"/"you owe", never a
+// bare +/− sign (ADR-0010).
 
-const KIND_LABEL: Record<ContactKind, string> = {
-  zamindar: 'Farmers (Zamindar)',
-  pakka: 'Buyers (Pakka)',
-  thekedar: 'Contractors (Thekedar)',
+const KINDS: ContactKind[] = ['zamindar', 'pakka', 'thekedar']
+
+// Shared field styling so form inputs match the reference standard (tokens, tall
+// enough for a thumb + Nastaliq, visible focus ring).
+const fieldClass =
+  'min-h-11 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 ' +
+  'focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] disabled:opacity-50'
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-[var(--color-muted)]">{label}</span>
+      {children}
+    </label>
+  )
 }
 
 function ContactForm({ kind, onSaved }: { kind: ContactKind; onSaved: () => void }) {
+  const { t } = useTranslation()
   const [id, setId] = useState('')
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
   const [commissionRate, setCommissionRate] = useState('')
   const [buyerCommissionRate, setBuyerCommissionRate] = useState('')
   const [bagBearer, setBagBearer] = useState<CostBearer | ''>('')
@@ -34,6 +53,7 @@ function ContactForm({ kind, onSaved }: { kind: ContactKind; onSaved: () => void
         id,
         kind,
         name: name || undefined,
+        phone: phone || undefined,
         commissionRate: commissionRate ? Number(commissionRate) : undefined,
         buyerCommissionRate: buyerCommissionRate ? Number(buyerCommissionRate) : undefined,
         bagBearer: bagBearer || undefined,
@@ -42,6 +62,7 @@ function ContactForm({ kind, onSaved }: { kind: ContactKind; onSaved: () => void
       })
       setId('')
       setName('')
+      setPhone('')
       setCommissionRate('')
       setBuyerCommissionRate('')
       setBagBearer('')
@@ -49,127 +70,139 @@ function ContactForm({ kind, onSaved }: { kind: ContactKind; onSaved: () => void
       setKattKgPerBag('')
       onSaved()
     } catch {
-      setError('Could not save this contact.')
+      setError(t('contacts.saveError'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ margin: '1rem 0', padding: '1rem', background: '#f5f5f5', borderRadius: 10 }}>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <label>
-          Id
-          <input value={id} onChange={(e) => setId(e.target.value)} disabled={busy} required style={{ display: 'block' }} />
-        </label>
-        <label>
-          Name
-          <input value={name} onChange={(e) => setName(e.target.value)} disabled={busy} style={{ display: 'block' }} />
-        </label>
-        {kind === 'zamindar' && (
-          <>
-            <label>
-              Commission rate override
-              <input
-                type="number"
-                step="0.01"
-                value={commissionRate}
-                onChange={(e) => setCommissionRate(e.target.value)}
-                disabled={busy}
-                style={{ display: 'block' }}
-              />
-            </label>
-            <label>
-              Bag-cost bearer override
-              <select value={bagBearer} onChange={(e) => setBagBearer(e.target.value as CostBearer | '')} disabled={busy} style={{ display: 'block' }}>
-                <option value="">(shop default)</option>
-                <option value="farmer">Farmer</option>
-                <option value="buyer">Buyer</option>
-              </select>
-            </label>
-            <label>
-              Labour-cost bearer override
-              <select value={labourBearer} onChange={(e) => setLabourBearer(e.target.value as CostBearer | '')} disabled={busy} style={{ display: 'block' }}>
-                <option value="">(shop default)</option>
-                <option value="farmer">Farmer</option>
-                <option value="buyer">Buyer</option>
-              </select>
-            </label>
-            <label>
-              Katt (kg/bag) override
-              <input
-                type="number"
-                step="0.1"
-                value={kattKgPerBag}
-                onChange={(e) => setKattKgPerBag(e.target.value)}
-                disabled={busy}
-                style={{ display: 'block' }}
-              />
-            </label>
-          </>
-        )}
-        {kind === 'pakka' && (
-          <label>
-            Buyer commission rate override
+    <Card>
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('contacts.formTitle')}</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label={t('contacts.id')}>
+            <input value={id} onChange={(e) => setId(e.target.value)} disabled={busy} required className={cn(fieldClass, 'num')} />
+          </Field>
+          <Field label={t('contacts.name')}>
+            <input value={name} onChange={(e) => setName(e.target.value)} disabled={busy} className={fieldClass} />
+          </Field>
+          <Field label={t('contacts.phone')}>
             <input
-              type="number"
-              step="0.01"
-              value={buyerCommissionRate}
-              onChange={(e) => setBuyerCommissionRate(e.target.value)}
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               disabled={busy}
-              style={{ display: 'block' }}
+              className={cn(fieldClass, 'num')}
             />
-          </label>
+          </Field>
+          {kind === 'zamindar' && (
+            <>
+              <Field label={t('contacts.commission')}>
+                <input type="number" step="0.01" value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} disabled={busy} className={cn(fieldClass, 'num')} />
+              </Field>
+              <Field label={t('contacts.bagBearer')}>
+                <select value={bagBearer} onChange={(e) => setBagBearer(e.target.value as CostBearer | '')} disabled={busy} className={fieldClass}>
+                  <option value="">{t('contacts.bearerDefault')}</option>
+                  <option value="farmer">{t('contacts.bearerFarmer')}</option>
+                  <option value="buyer">{t('contacts.bearerBuyer')}</option>
+                </select>
+              </Field>
+              <Field label={t('contacts.labourBearer')}>
+                <select value={labourBearer} onChange={(e) => setLabourBearer(e.target.value as CostBearer | '')} disabled={busy} className={fieldClass}>
+                  <option value="">{t('contacts.bearerDefault')}</option>
+                  <option value="farmer">{t('contacts.bearerFarmer')}</option>
+                  <option value="buyer">{t('contacts.bearerBuyer')}</option>
+                </select>
+              </Field>
+              <Field label={t('contacts.katt')}>
+                <input type="number" step="0.1" value={kattKgPerBag} onChange={(e) => setKattKgPerBag(e.target.value)} disabled={busy} className={cn(fieldClass, 'num')} />
+              </Field>
+            </>
+          )}
+          {kind === 'pakka' && (
+            <Field label={t('contacts.buyerCommission')}>
+              <input type="number" step="0.01" value={buyerCommissionRate} onChange={(e) => setBuyerCommissionRate(e.target.value)} disabled={busy} className={cn(fieldClass, 'num')} />
+            </Field>
+          )}
+        </div>
+        <Button type="submit" disabled={busy || !id} className="w-full">
+          {busy ? t('contacts.saving') : t('contacts.save')}
+        </Button>
+        {error && (
+          <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>
+            {error}
+          </p>
         )}
-      </div>
-      <button type="submit" disabled={busy || !id} style={{ marginTop: '0.75rem' }}>
-        {busy ? 'Saving…' : 'Save contact'}
-      </button>
-      {error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
-        </p>
-      )}
-    </form>
+      </form>
+    </Card>
+  )
+}
+
+
+function ContactRow({ contact, onOpen }: { contact: ContactRecord; onOpen: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-start shadow-sm hover:bg-[var(--color-surface)]"
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-medium">{contact.name ?? contact.id}</span>
+        <span className="num block truncate text-sm text-[var(--color-muted)]">
+          {contact.phone ?? t('contacts.noPhone')}
+        </span>
+      </span>
+      <span className="shrink-0 text-sm">
+        <MoneyLabel kind={contact.kind} balance={contact.balance} />
+      </span>
+    </button>
   )
 }
 
 export function Contacts() {
+  const { t } = useTranslation()
   const [kind, setKind] = useState<ContactKind>('zamindar')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ContactRecord[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
   const navigate = useNavigate()
 
   function reload() {
     setLoading(true)
-    setError(null)
+    setError(false)
     api
       .listContacts(kind, query || undefined)
       .then(setResults)
-      .catch(() => setError('Could not load contacts. Try again in a moment.'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }
 
   useEffect(reload, [kind]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/">&larr; Dashboard</Link>
-      </p>
-      <h1>Contacts</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold">{t('contacts.title')}</h1>
 
-      <div style={{ display: 'flex', gap: '0.5rem', margin: '1rem 0' }}>
-        {(Object.keys(KIND_LABEL) as ContactKind[]).map((k) => (
+      <div className="flex gap-2" role="tablist">
+        {KINDS.map((k) => (
           <button
             key={k}
+            role="tab"
+            aria-selected={kind === k}
             onClick={() => setKind(k)}
-            disabled={kind === k}
-            style={{ fontWeight: kind === k ? 700 : 400 }}
+            className={cn(
+              'min-h-10 flex-1 rounded-lg border px-2 text-sm font-medium',
+              kind === k
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-fg)]'
+                : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-muted)]',
+            )}
           >
-            {KIND_LABEL[k]}
+            {t(`contacts.roles.${k}`)}
           </button>
         ))}
       </div>
@@ -179,125 +212,119 @@ export function Contacts() {
           e.preventDefault()
           reload()
         }}
-        style={{ margin: '0.5rem 0' }}
+        className="flex gap-2"
       >
         <input
-          placeholder="Search by name…"
+          type="search"
+          placeholder={t('contacts.searchPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ width: '100%', maxWidth: 320 }}
+          className={fieldClass}
         />
-        <button type="submit" style={{ marginLeft: '0.5rem' }}>
-          Search
-        </button>
+        <Button type="submit" variant="outline" className="shrink-0">
+          {t('contacts.search')}
+        </Button>
       </form>
 
-      <ContactForm kind={kind} onSaved={reload} />
+      <Button type="button" variant="outline" onClick={() => setShowForm((v) => !v)} className="w-full">
+        {t('contacts.addToggle')}
+      </Button>
+      {showForm && <ContactForm kind={kind} onSaved={reload} />}
 
-      {loading && <p>Loading…</p>}
-      {!loading && error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
+      {loading && (
+        <p role="status" className="py-8 text-center text-[var(--color-muted)]">
+          {t('state.loading')}
         </p>
       )}
-      {!loading && !error && results && results.length === 0 && <p>No contacts yet for {KIND_LABEL[kind]}.</p>}
-      {!loading && !error && results && results.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-              <th>Id</th>
-              <th>Name</th>
-              <th>Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map((c) => (
-              <tr key={c.id} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }} onClick={() => navigate(`/contacts/${c.id}`)}>
-                <td>{c.id}</td>
-                <td>{c.name ?? '—'}</td>
-                <td>
-                  <MoneyLabel kind={c.kind} balance={c.balance} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {!loading && error && (
+        <p role="alert" className="py-8 text-center" style={{ color: 'var(--color-you-owe)' }}>
+          {t('contacts.loadError')}
+        </p>
       )}
-    </main>
+      {!loading && !error && results && results.length === 0 && (
+        <p className="py-8 text-center text-[var(--color-muted)]">{t('contacts.empty')}</p>
+      )}
+      {!loading && !error && results && results.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {results.map((c) => (
+            <ContactRow key={c.id} contact={c} onOpen={() => navigate(`/contacts/${c.id}`)} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
-// Issue #26 — the running statement + settlement cascade breakdown
-// (ADR-0008): friendly labels for each entry kind that can touch a farmer.
-const ENTRY_KIND_LABEL: Record<string, string> = {
-  opening_balance: 'Opening balance',
-  peshi_advance: 'Advance (Peshi)',
-  trade: 'Sale',
-  farmer_withdrawal: 'Withdrawal',
-  bardana_loan: 'Bardana lent',
-  bardana_resolution: 'Bardana resolved',
-}
-
 function StatementTable({ statement }: { statement: FarmerStatement }) {
+  const { t } = useTranslation()
   if (statement.entries.length === 0) {
-    return <p>No activity yet for this farmer.</p>
+    return <p className="text-[var(--color-muted)]">{t('contacts.noStatement')}</p>
   }
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' }}>
-      <thead>
-        <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-          <th>Entry</th>
-          <th>Amount</th>
-          <th>Balance after</th>
-        </tr>
-      </thead>
-      <tbody>
-        {statement.entries.map((line: StatementLine) => (
-          <Fragment key={line.entryId}>
-            <tr style={{ borderBottom: line.settlement ? 'none' : '1px solid #eee' }}>
-              <td>{ENTRY_KIND_LABEL[line.kind] ?? line.kind}</td>
-              <td style={{ color: line.amount < 0 ? '#a53434' : '#1e7a34' }}>
-                {line.amount < 0 ? '−' : '+'}
-                {formatPkr(line.amount)}
-              </td>
-              <td>
-                <MoneyLabel kind="zamindar" balance={line.balanceAfter} />
-              </td>
-            </tr>
-            {line.settlement && (
-              <tr style={{ borderBottom: '1px solid #eee' }}>
-                <td colSpan={3} style={{ padding: '0.25rem 0 0.6rem 1rem', color: '#555', fontSize: '0.9rem' }}>
-                  Settlement cascade (ADR-0008): debt repaid {formatPkr(line.settlement.debtRepaid)} · held
-                  surplus {formatPkr(line.settlement.heldSurplus)}
-                  {line.settlement.remainingDebt > 0 && <> · remaining debt {formatPkr(line.settlement.remainingDebt)}</>}
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="text-start text-[var(--color-muted)]">
+            <th className="py-1 text-start font-medium">{t('contacts.entryHeader')}</th>
+            <th className="py-1 text-start font-medium">{t('contacts.amountHeader')}</th>
+            <th className="py-1 text-start font-medium">{t('contacts.balanceHeader')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {statement.entries.map((line: StatementLine) => (
+            <Fragment key={line.entryId}>
+              <tr className={cn(!line.settlement && 'border-b border-[var(--color-border)]')}>
+                <td className="py-1">{t(`contacts.entryKind.${line.kind}`, line.kind)}</td>
+                <td
+                  className="num py-1"
+                  style={{ color: line.amount < 0 ? 'var(--color-owed-to-you)' : 'var(--color-you-owe)' }}
+                >
+                  {line.amount < 0 ? '−' : '+'}
+                  {formatPkr(line.amount)}
+                </td>
+                <td className="py-1">
+                  <MoneyLabel kind="zamindar" balance={line.balanceAfter} />
                 </td>
               </tr>
-            )}
-          </Fragment>
-        ))}
-      </tbody>
-    </table>
+              {line.settlement && (
+                <tr className="border-b border-[var(--color-border)]">
+                  <td colSpan={3} className="pb-2 ps-4 text-xs text-[var(--color-muted)]">
+                    {t('contacts.settlement', {
+                      debt: formatPkr(line.settlement.debtRepaid),
+                      surplus: formatPkr(line.settlement.heldSurplus),
+                    })}
+                    {line.settlement.remainingDebt > 0 &&
+                      t('contacts.remainingDebt', { amount: formatPkr(line.settlement.remainingDebt) })}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
 export function ContactDetail() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const [contact, setContact] = useState<ContactRecord | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const [statement, setStatement] = useState<FarmerStatement | null>(null)
-  const [statementError, setStatementError] = useState<string | null>(null)
+  const [statementError, setStatementError] = useState(false)
   const [statementLoading, setStatementLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
     setLoading(true)
-    setError(null)
+    setError(false)
     api
       .getContact(id)
       .then(setContact)
-      .catch(() => setError('Could not load this contact.'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -306,68 +333,108 @@ export function ContactDetail() {
   useEffect(() => {
     if (!id || !contact || contact.kind !== 'zamindar') return
     setStatementLoading(true)
-    setStatementError(null)
+    setStatementError(false)
     api
       .getFarmerStatement(id)
       .then(setStatement)
-      .catch(() => setStatementError('Could not load the running statement.'))
+      .catch(() => setStatementError(true))
       .finally(() => setStatementLoading(false))
   }, [id, contact])
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/contacts">&larr; Contacts</Link>
-      </p>
-      {loading && <p>Loading…</p>}
-      {!loading && error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
+    <div className="flex flex-col gap-4">
+      <Link to="/contacts" className="text-sm text-[var(--color-accent)]">
+        ← {t('contacts.title')}
+      </Link>
+
+      {loading && (
+        <p role="status" className="py-8 text-center text-[var(--color-muted)]">
+          {t('state.loading')}
         </p>
       )}
-      {!loading && !error && !contact && <p>No such contact.</p>}
+      {!loading && error && (
+        <p role="alert" className="py-8 text-center" style={{ color: 'var(--color-you-owe)' }}>
+          {t('contacts.detailError')}
+        </p>
+      )}
+      {!loading && !error && !contact && (
+        <p className="py-8 text-center text-[var(--color-muted)]">{t('contacts.notFound')}</p>
+      )}
       {!loading && !error && contact && (
         <>
-          <h1>{contact.name ?? contact.id}</h1>
-          <p>{KIND_LABEL[contact.kind]}</p>
-          <p style={{ fontSize: '1.4rem' }}>
-            <MoneyLabel kind={contact.kind} balance={contact.balance} />
-          </p>
-          {contact.kind === 'zamindar' && (
-            <ul>
-              {contact.commissionRate !== undefined && <li>Commission override: {contact.commissionRate}</li>}
-              {contact.bagBearer && <li>Bag-cost bearer override: {contact.bagBearer}</li>}
-              {contact.labourBearer && <li>Labour-cost bearer override: {contact.labourBearer}</li>}
-              {contact.kattKgPerBag !== undefined && <li>Katt override: {contact.kattKgPerBag} kg/bag</li>}
-            </ul>
-          )}
+          <Card className="flex flex-col gap-1">
+            <h1 className="text-xl font-bold">{contact.name ?? contact.id}</h1>
+            <p className="text-sm text-[var(--color-muted)]">{t(`contacts.roles.${contact.kind}`)}</p>
+            <p className="num text-sm text-[var(--color-muted)]">{contact.phone ?? t('contacts.noPhone')}</p>
+            <p className="mt-2 text-lg">
+              <MoneyLabel kind={contact.kind} balance={contact.balance} />
+            </p>
+          </Card>
+
+          {contact.kind === 'zamindar' &&
+            (contact.commissionRate !== undefined ||
+              contact.bagBearer ||
+              contact.labourBearer ||
+              contact.kattKgPerBag !== undefined) && (
+              <Card>
+                <h2 className="mb-1 text-sm font-semibold text-[var(--color-muted)]">{t('contacts.overrides')}</h2>
+                <ul className="text-sm">
+                  {contact.commissionRate !== undefined && (
+                    <li>
+                      {t('contacts.commission')}: <span className="num">{contact.commissionRate}</span>
+                    </li>
+                  )}
+                  {contact.bagBearer && <li>{t('contacts.bagBearer')}: {t(`contacts.bearer${contact.bagBearer === 'farmer' ? 'Farmer' : 'Buyer'}`)}</li>}
+                  {contact.labourBearer && <li>{t('contacts.labourBearer')}: {t(`contacts.bearer${contact.labourBearer === 'farmer' ? 'Farmer' : 'Buyer'}`)}</li>}
+                  {contact.kattKgPerBag !== undefined && (
+                    <li>
+                      {t('contacts.katt')}: <span className="num">{contact.kattKgPerBag}</span>
+                    </li>
+                  )}
+                </ul>
+              </Card>
+            )}
           {contact.kind === 'pakka' && contact.buyerCommissionRate !== undefined && (
-            <p>Buyer commission override: {contact.buyerCommissionRate}</p>
+            <Card>
+              <p className="text-sm">
+                {t('contacts.buyerCommission')}: <span className="num">{contact.buyerCommissionRate}</span>
+              </p>
+            </Card>
           )}
 
           {contact.kind === 'zamindar' && (
             <>
-              <div style={{ display: 'flex', gap: '0.75rem', margin: '1rem 0' }}>
-                <Link to={`/advance?farmerId=${encodeURIComponent(contact.id)}`}>
-                  <button type="button">Issue advance</button>
+              <div className="flex gap-2">
+                <Link to={`/advance?farmerId=${encodeURIComponent(contact.id)}`} className="flex-1">
+                  <Button type="button" className="w-full">
+                    {t('contacts.issueAdvance')}
+                  </Button>
                 </Link>
-                <Link to={`/payment?farmerId=${encodeURIComponent(contact.id)}`}>
-                  <button type="button">Withdraw</button>
+                <Link to={`/payment?farmerId=${encodeURIComponent(contact.id)}`} className="flex-1">
+                  <Button type="button" variant="outline" className="w-full">
+                    {t('contacts.withdraw')}
+                  </Button>
                 </Link>
               </div>
 
-              <h2>Running statement</h2>
-              {statementLoading && <p>Loading…</p>}
-              {!statementLoading && statementError && (
-                <p role="alert" style={{ color: 'crimson' }}>
-                  {statementError}
-                </p>
-              )}
-              {!statementLoading && !statementError && statement && <StatementTable statement={statement} />}
+              <section>
+                <h2 className="mb-2 text-sm font-semibold text-[var(--color-muted)]">{t('contacts.runningStatement')}</h2>
+                {statementLoading && (
+                  <p role="status" className="text-[var(--color-muted)]">
+                    {t('state.loading')}
+                  </p>
+                )}
+                {!statementLoading && statementError && (
+                  <p role="alert" style={{ color: 'var(--color-you-owe)' }}>
+                    {t('contacts.statementError')}
+                  </p>
+                )}
+                {!statementLoading && !statementError && statement && <StatementTable statement={statement} />}
+              </section>
             </>
           )}
         </>
       )}
-    </main>
+    </div>
   )
 }
