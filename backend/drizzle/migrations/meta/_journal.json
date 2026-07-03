@@ -64,6 +64,13 @@
       "when": 1783093276096,
       "tag": "0008_sleepy_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783094326934,
+      "tag": "0009_shocking_manta",
+      "breakpoints": true
     }
   ]
 }

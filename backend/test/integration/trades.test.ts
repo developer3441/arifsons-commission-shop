@@ -308,3 +308,164 @@ describe('POST /trades', () => {
     expect(res.status).toBe(404)
   })
 })
+
+// Issue #54 / ADR-0032 — a trade may be submitted as one self-contained payload
+// carrying the farmer, each bag's gross weight, and the buyer lines. The server
+// creates the lot + bag records + postings atomically and assigns the lot number
+// at that point. Idempotent on entryId (ADR-0021); oversell still rejected
+// (ADR-0019). The incremental lot endpoints (tested above) are unaffected.
+describe('POST /trades — atomic inline-lot submission (ADR-0032)', () => {
+  const bags = (count: number, grossKg: number) => Array.from({ length: count }, () => ({ grossKg }))
+
+  it('creates the lot + bags + postings in one request, assigns the lot number, and returns the bill', async () => {
+    const token = await login('atomic-1')
+    const auth = { headers: { authorization: `Bearer ${token}` } }
+    await app.request('/contacts', json({ id: 'farmer-atomic-1', kind: 'zamindar', name: 'Ali' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-atomic-1', kind: 'pakka', name: 'Mill' }, token), env)
+    await app.request('/contacts', json({ id: 'thekedar-atomic-1', kind: 'thekedar' }, token), env)
+
+    const post = await app.request(
+      '/trades',
+      json(
+        {
+          entryId: 'atomic-e1',
+          farmerId: 'farmer-atomic-1',
+          thekedarId: 'thekedar-atomic-1',
+          bags: bags(40, 101.5), // 40 bags @ 101.5kg, Katt 1.5 -> 100kg each -> 100 maund
+          buyerId: 'buyer-atomic-1',
+          ratePerMaund: 2000,
+          kattKgPerBag: 1.5,
+        },
+        token,
+      ),
+      env,
+    )
+    expect(post.status).toBe(201)
+    const body = (await post.json()) as {
+      lotNumber: number
+      payableMaunds: number
+      farmerBill: { gross: number; commission: number; net: number }
+      buyerInvoices: { total: number }[]
+    }
+    expect(typeof body.lotNumber).toBe('number') // server-assigned at submit time
+    expect(body.payableMaunds).toBe(100)
+    expect(body.farmerBill.gross).toBe(200_000)
+    expect(body.farmerBill.commission).toBe(4_000) // 2% shop default
+    expect(body.buyerInvoices[0]!.total).toBe(200_000)
+
+    // The lot + its bags were persisted — a GET reads them back.
+    const lotRes = await app.request(`/lots/${body.lotNumber}`, auth, env)
+    expect(lotRes.status).toBe(200)
+    const lot = (await lotRes.json()) as { farmerId: string; bags: unknown[] }
+    expect(lot.farmerId).toBe('farmer-atomic-1')
+    expect(lot.bags).toHaveLength(40)
+
+    // The buyer (a fresh account touched only by this trade) now owes the full
+    // sale value — proof the postings landed from the inline submission.
+    const buyerBal = ((await (await app.request('/accounts/buyer-atomic-1/balance', auth, env)).json()) as {
+      balance: number
+    }).balance
+    expect(buyerBal).toBe(-200_000)
+  })
+
+  it('is idempotent on entryId: a resubmission creates no second lot and does not double-post', async () => {
+    const token = await login('atomic-2')
+    const auth = { headers: { authorization: `Bearer ${token}` } }
+    await app.request('/contacts', json({ id: 'farmer-atomic-2', kind: 'zamindar' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-atomic-2', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'thekedar-atomic-2', kind: 'thekedar' }, token), env)
+
+    const payload = {
+      entryId: 'atomic-e2',
+      farmerId: 'farmer-atomic-2',
+      thekedarId: 'thekedar-atomic-2',
+      bags: bags(40, 101.5),
+      buyerId: 'buyer-atomic-2',
+      ratePerMaund: 2000,
+      kattKgPerBag: 1.5,
+    }
+
+    const first = await app.request('/trades', json(payload, token), env)
+    expect(first.status).toBe(201)
+    const firstBody = (await first.json()) as { lotNumber: number }
+    const farmerBal = async () =>
+      ((await (await app.request('/accounts/farmer-atomic-2/balance', auth, env)).json()) as { balance: number }).balance
+    const balAfterFirst = await farmerBal()
+
+    const repeat = await app.request('/trades', json(payload, token), env)
+    expect(repeat.status).toBe(201)
+    const repeatBody = (await repeat.json()) as { lotNumber: number }
+    expect(repeatBody.lotNumber).toBe(firstBody.lotNumber) // same lot, not a new one
+    expect(await farmerBal()).toBe(balAfterFirst) // no double-post
+
+    // Only one lot was ever created for this farmer.
+    const lots = (await (await app.request('/lots?farmerId=farmer-atomic-2', auth, env)).json()) as unknown[]
+    expect(lots).toHaveLength(1)
+  })
+
+  it('splits an inline lot across 2 buyers, rolling up to one farmer bill', async () => {
+    const token = await login('atomic-3')
+    await app.request('/contacts', json({ id: 'farmer-atomic-3', kind: 'zamindar' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-3a', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-3b', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'thekedar-atomic-3', kind: 'thekedar' }, token), env)
+
+    const post = await app.request(
+      '/trades',
+      json(
+        {
+          entryId: 'atomic-e3',
+          farmerId: 'farmer-atomic-3',
+          thekedarId: 'thekedar-atomic-3',
+          bags: bags(40, 101.5),
+          lines: [
+            { buyerId: 'buyer-3a', bagCount: 25, ratePerMaund: 2000 },
+            { buyerId: 'buyer-3b', bagCount: 15, ratePerMaund: 2200 },
+          ],
+        },
+        token,
+      ),
+      env,
+    )
+    expect(post.status).toBe(201)
+    const body = (await post.json()) as {
+      payableMaunds: number
+      buyerInvoices: { buyerId: string; saleValue: number }[]
+    }
+    expect(body.payableMaunds).toBe(100)
+    expect(body.buyerInvoices.find((i) => i.buyerId === 'buyer-3a')!.saleValue).toBe(125_000)
+    expect(body.buyerInvoices.find((i) => i.buyerId === 'buyer-3b')!.saleValue).toBe(82_500)
+  })
+
+  it('rejects overselling an inline lot across lines (ADR-0019) and writes nothing', async () => {
+    const token = await login('atomic-4')
+    const auth = { headers: { authorization: `Bearer ${token}` } }
+    await app.request('/contacts', json({ id: 'farmer-atomic-4', kind: 'zamindar' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-4a', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'buyer-4b', kind: 'pakka' }, token), env)
+    await app.request('/contacts', json({ id: 'thekedar-atomic-4', kind: 'thekedar' }, token), env)
+
+    const res = await app.request(
+      '/trades',
+      json(
+        {
+          entryId: 'atomic-e4',
+          farmerId: 'farmer-atomic-4',
+          thekedarId: 'thekedar-atomic-4',
+          bags: bags(10, 101.5), // only 10 bags
+          lines: [
+            { buyerId: 'buyer-4a', bagCount: 7, ratePerMaund: 2000 },
+            { buyerId: 'buyer-4b', bagCount: 7, ratePerMaund: 2000 }, // 14 > 10
+          ],
+        },
+        token,
+      ),
+      env,
+    )
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as { error: string }).error).toMatch(/oversell/i)
+    // No farmer ledger movement occurred.
+    const bal = ((await (await app.request('/accounts/farmer-atomic-4/balance', auth, env)).json()) as { balance: number }).balance
+    expect(bal).toBe(0)
+  })
+})
