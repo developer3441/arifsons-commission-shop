@@ -7,6 +7,7 @@ import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Field, fieldClass } from '../components/ui/field'
 import { ContactPicker } from '../components/ContactPicker'
+import { useOffline } from '../offline/OfflineContext'
 import { cn } from '../lib/utils'
 
 // Dashboard quick action → Issue Advance (Peshi, ADR-0008). The farmer is chosen
@@ -16,6 +17,7 @@ export function IssueAdvance() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { online } = useOffline()
 
   const [farmer, setFarmer] = useState<ContactRecord | null>(null)
   const [amount, setAmount] = useState('')
@@ -82,9 +84,14 @@ export function IssueAdvance() {
             className={cn(fieldClass, 'num')}
           />
         </Field>
-        <Button type="button" onClick={onSubmit} disabled={busy || !farmer || !amount}>
+        <Button type="button" onClick={onSubmit} disabled={busy || !farmer || !amount || !online}>
           {busy ? t('advance.posting') : t('advance.post')}
         </Button>
+        {!online && (
+          <p role="status" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>
+            {t('offline.needsConnection')}
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>
             {error}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LayoutDashboard, BookOpen, Users, Menu, Plus, X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { SyncStatus } from '../offline/SyncStatus'
 import { Button } from './ui/button'
 import { cn } from '../lib/utils'
 
@@ -34,6 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
         <span className="text-lg font-bold text-[var(--color-accent)]">{t('app.name')}</span>
         <div className="flex items-center gap-2">
+          <SyncStatus />
           <LanguageSwitcher />
           <Button variant="ghost" size="md" onClick={logout} className="text-sm">
             {t('common.logout')}

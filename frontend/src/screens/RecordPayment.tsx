@@ -7,6 +7,7 @@ import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Field, fieldClass } from '../components/ui/field'
 import { ContactPicker } from '../components/ContactPicker'
+import { useOffline } from '../offline/OfflineContext'
 import { cn } from '../lib/utils'
 
 // Issue #27 / #55 — the Rokar-only settle-up actions (ADR-0019): buyer payment,
@@ -17,6 +18,7 @@ export function RecordPayment() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { online } = useOffline()
 
   const [cashBook, setCashBook] = useState<CashBook | null>(null)
   const [loading, setLoading] = useState(true)
@@ -99,12 +101,17 @@ export function RecordPayment() {
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">{t('payment.title')}</h1>
       <p className="text-sm text-[var(--color-muted)]">{t('payment.intro')}</p>
+      {!online && (
+        <p role="status" className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--color-thekedar-bg)', color: 'var(--color-thekedar-fg)' }}>
+          {t('offline.needsConnection')}
+        </p>
+      )}
 
       <Card className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('payment.buyerPayment')}</h2>
         <p className="text-xs text-[var(--color-muted)]">{t('payment.buyerHint')}</p>
         <ContactPicker kind="pakka" value={buyer} onSelect={setBuyer} disabled={buyerBusy} />
-        <Button type="button" onClick={onBuyerPayment} disabled={buyerBusy || !buyer}>
+        <Button type="button" onClick={onBuyerPayment} disabled={buyerBusy || !buyer || !online}>
           {buyerBusy ? t('payment.recording') : t('payment.recordPayment')}
         </Button>
         {buyerError && <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{buyerError}</p>}
@@ -117,7 +124,7 @@ export function RecordPayment() {
         <Field label={t('payment.amount')}>
           <input type="number" min={1} inputMode="numeric" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} disabled={withdrawBusy} className={cn(fieldClass, 'num')} />
         </Field>
-        <Button type="button" onClick={onWithdrawal} disabled={withdrawBusy || !farmer || !withdrawAmount}>
+        <Button type="button" onClick={onWithdrawal} disabled={withdrawBusy || !farmer || !withdrawAmount || !online}>
           {withdrawBusy ? t('payment.recording') : t('payment.withdraw')}
         </Button>
         {withdrawError && <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{withdrawError}</p>}
@@ -127,7 +134,7 @@ export function RecordPayment() {
         <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('payment.payout')}</h2>
         <p className="text-xs text-[var(--color-muted)]">{t('payment.payoutHint')}</p>
         <ContactPicker kind="thekedar" value={thekedar} onSelect={setThekedar} disabled={payoutBusy} />
-        <Button type="button" onClick={onPayout} disabled={payoutBusy || !thekedar}>
+        <Button type="button" onClick={onPayout} disabled={payoutBusy || !thekedar || !online}>
           {payoutBusy ? t('payment.recording') : t('payment.recordPayout')}
         </Button>
         {payoutError && <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{payoutError}</p>}

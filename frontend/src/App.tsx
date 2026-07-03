@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
+import { OfflineProvider } from './offline/OfflineContext'
 import { AppShell } from './components/AppShell'
 import { Login } from './screens/Login'
 import { Dashboard } from './screens/Dashboard'
@@ -39,6 +40,7 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <OfflineProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -57,6 +59,7 @@ export function App() {
           <Route path="/config" element={<RequireOwner><Config /></RequireOwner>} />
           <Route path="/genesis" element={<RequireOwner><Genesis /></RequireOwner>} />
         </Routes>
+        </OfflineProvider>
       </AuthProvider>
     </BrowserRouter>
   )

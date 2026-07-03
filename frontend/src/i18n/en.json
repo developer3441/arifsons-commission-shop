@@ -361,6 +361,17 @@
     "colActor": "Actor",
     "deletedPostings": "(deleted)"
   },
+  "offline": {
+    "offline": "Offline",
+    "syncing": "Syncing…",
+    "synced": "Synced",
+    "pending": "{{count}} pending",
+    "syncNow": "Sync now",
+    "queued": "Saved — will sync when back online.",
+    "pendingBadge": "Pending sync",
+    "asOfLastSync": "as of last sync",
+    "needsConnection": "This action needs a live connection — it can't be done offline."
+  },
   "money": { "owesYou": "owes you", "youOwe": "you owe", "settled": "settled", "heldForGovt": "held for govt" },
   "state": { "loading": "Loading…", "error": "Something went wrong. Try again in a moment." },
   "common": { "logout": "Log out", "language": "Language", "english": "English", "urdu": "اردو", "backToDashboard": "Back to Dashboard" }
