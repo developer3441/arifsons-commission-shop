@@ -18,6 +18,7 @@ import { Cess } from './screens/Cess'
 import { Godown } from './screens/Godown'
 import { Corrections } from './screens/Corrections'
 import { Ledgers } from './screens/Ledgers'
+import { SyncCenter } from './screens/SyncCenter'
 
 // Issue #52 — the app shell (ADR-0029) wraps every authenticated screen so the
 // bottom-tab navigation persists app-wide. Login is public and unwrapped.
@@ -55,6 +56,7 @@ export function App() {
           <Route path="/cess" element={<RequireAuth><Cess /></RequireAuth>} />
           <Route path="/godown" element={<RequireAuth><Godown /></RequireAuth>} />
           <Route path="/corrections" element={<RequireAuth><Corrections /></RequireAuth>} />
+          <Route path="/sync" element={<RequireAuth><SyncCenter /></RequireAuth>} />
           <Route path="/users" element={<RequireOwner><Users /></RequireOwner>} />
           <Route path="/config" element={<RequireOwner><Config /></RequireOwner>} />
           <Route path="/genesis" element={<RequireOwner><Genesis /></RequireOwner>} />

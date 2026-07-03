@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import '../i18n'
 import { LanguageProvider } from '../i18n/LanguageProvider'
+import { AuthProvider } from '../auth/AuthContext'
 import { OfflineContext } from './OfflineContext'
 import { SyncStatus } from './SyncStatus'
 import { enqueue, listQueued } from './queue'
@@ -28,20 +29,26 @@ type OfflineValue = React.ContextType<typeof OfflineContext>
 const value = (o: Partial<NonNullable<OfflineValue>>): OfflineValue => ({
   online: true,
   pending: 0,
+  needsAttention: 0,
   syncing: false,
+  authRequired: false,
   syncedAt: 0,
   enqueueWrite: enqueue,
   syncNow: async () => {},
   refreshPending: async () => {},
+  retryItem: async () => {},
+  discardItem: async () => {},
   ...o,
 })
 
 function wrap(node: ReactNode, offline: Partial<NonNullable<OfflineValue>>) {
   return render(
     <LanguageProvider>
-      <OfflineContext.Provider value={value(offline)}>
-        <MemoryRouter>{node}</MemoryRouter>
-      </OfflineContext.Provider>
+      <AuthProvider>
+        <OfflineContext.Provider value={value(offline)}>
+          <MemoryRouter>{node}</MemoryRouter>
+        </OfflineContext.Provider>
+      </AuthProvider>
     </LanguageProvider>,
   )
 }

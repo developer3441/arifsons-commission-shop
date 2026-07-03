@@ -28,6 +28,7 @@
     "government": "Government · Cess"
   },
   "more": {
+    "sync": "Sync",
     "bardana": "Bardana",
     "cess": "Cess / Government",
     "godown": "Godown",
@@ -370,7 +371,26 @@
     "queued": "Saved — will sync when back online.",
     "pendingBadge": "Pending sync",
     "asOfLastSync": "as of last sync",
-    "needsConnection": "This action needs a live connection — it can't be done offline."
+    "needsConnection": "This action needs a live connection — it can't be done offline.",
+    "needsAttention": "{{count}} need attention",
+    "reLogin": "Sign in to sync"
+  },
+  "sync": {
+    "title": "Sync",
+    "authExpired": "Your session expired while offline. Sign in again to resume syncing.",
+    "signIn": "Sign in",
+    "pending": "Pending",
+    "needsAttention": "Needs attention",
+    "discarded": "Discarded",
+    "syncNow": "Sync now",
+    "retry": "Retry",
+    "discard": "Discard",
+    "reasonPlaceholder": "Reason for discarding…",
+    "confirmDiscard": "Confirm discard",
+    "cancel": "Cancel",
+    "reasonRequired": "Enter a reason to discard this item.",
+    "allClear": "Nothing pending. Everything is synced.",
+    "loadError": "Could not read the offline queue."
   },
   "money": { "owesYou": "owes you", "youOwe": "you owe", "settled": "settled", "heldForGovt": "held for govt" },
   "state": { "loading": "Loading…", "error": "Something went wrong. Try again in a moment." },
