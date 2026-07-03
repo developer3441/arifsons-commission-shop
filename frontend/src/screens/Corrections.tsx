@@ -1,31 +1,26 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api, type EntryRecord, type ChangeLogRow } from '../api'
 import { formatPkr } from '../money'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Field, fieldClass } from '../components/ui/field'
+import { cn } from '../lib/utils'
 
-// Issue #30 — Corrections & audit log (ADR-0011, clarified; ADR-0021). An
-// edit/delete never rewrites a posting: it appends a reversal (and, for an
+// Issue #30 / #57 — Corrections & audit log (ADR-0011, clarified; ADR-0021).
+// An edit/delete never rewrites a posting: it appends a reversal (and, for an
 // edit, a fresh corrected entry) plus a change-log row. Editing a settled
 // entry warns and is Owner-only, but the change is still logged either way.
-
-const ENTRY_KIND_LABEL: Record<string, string> = {
-  opening_balance: 'Opening balance',
-  peshi_advance: 'Advance (Peshi)',
-  trade: 'Sale',
-  buyer_payment: 'Buyer payment',
-  farmer_withdrawal: 'Farmer withdrawal',
-  contractor_payout: 'Contractor payout',
-  cess_remittance: 'Cess remittance',
-  bardana_loan: 'Bardana lent',
-  bardana_resolution: 'Bardana resolved',
-  stock_resale: 'Godown resale',
-}
+// Mobile-first, bilingual, tokens (ADR-0029/0030).
 
 function summarisePostings(postings: { accountId: string; amount: number }[]): string {
   return postings.map((p) => `${p.accountId}: ${p.amount >= 0 ? '+' : ''}${formatPkr(p.amount)}`).join(', ')
 }
 
 export function Corrections() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
   const [log, setLog] = useState<ChangeLogRow[] | null>(null)
   const [logLoading, setLogLoading] = useState(true)
   const [logError, setLogError] = useState<string | null>(null)
@@ -46,10 +41,11 @@ export function Corrections() {
     api
       .getChangeLog()
       .then(setLog)
-      .catch(() => setLogError('Could not load the change log.'))
+      .catch(() => setLogError(t('corrections.logError')))
       .finally(() => setLogLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reloadLog, [])
 
   async function onLookup(e: FormEvent) {
@@ -63,7 +59,7 @@ export function Corrections() {
       setPostingsDraft(found.postings.map((p) => ({ accountId: p.accountId, amount: String(p.amount) })))
     } catch {
       setEntry(null)
-      setLookupError('No such entry.')
+      setLookupError(t('corrections.notFound'))
     } finally {
       setLookupBusy(false)
     }
@@ -82,7 +78,7 @@ export function Corrections() {
       reloadLog()
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
-      setActionError(message.includes('403') ? 'Only an Owner may edit a settled entry.' : 'Could not save this correction.')
+      setActionError(message.includes('403') ? t('corrections.editForbidden') : t('corrections.editError'))
     } finally {
       setActionBusy(false)
     }
@@ -101,129 +97,130 @@ export function Corrections() {
       reloadLog()
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
-      setActionError(message.includes('403') ? 'Only an Owner may delete a settled entry.' : 'Could not delete this entry.')
+      setActionError(message.includes('403') ? t('corrections.deleteForbidden') : t('corrections.deleteError'))
     } finally {
       setActionBusy(false)
     }
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 760, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/">&larr; Dashboard</Link>
-      </p>
-      <h1>Corrections &amp; Audit Log</h1>
-      <p style={{ color: '#666' }}>
-        An edit or delete never rewrites a posting — it appends a reversal (and, for an edit, a fresh
-        corrected entry). Editing a settled entry (cess remitted, contractor paid, buyer cleared) warns and
-        is Owner-only; the change is still logged.
-      </p>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold">{t('corrections.title')}</h1>
+      <p className="text-sm text-[var(--color-muted)]">{t('corrections.intro')}</p>
 
-      <fieldset style={{ margin: '1rem 0', border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem' }}>
-        <legend>Look up an entry to correct</legend>
-        <form onSubmit={onLookup} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
-          <label>
-            Entry id
-            <input value={entryId} onChange={(e) => setEntryId(e.target.value)} disabled={lookupBusy} required style={{ display: 'block' }} />
-          </label>
-          <button type="submit" disabled={lookupBusy || !entryId}>
-            {lookupBusy ? 'Looking up…' : 'Look up'}
-          </button>
+      <Card className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('corrections.lookupTitle')}</h2>
+        <form onSubmit={onLookup} className="flex flex-col gap-3">
+          <Field label={t('corrections.entryId')}>
+            <input className={fieldClass} value={entryId} onChange={(e) => setEntryId(e.target.value)} disabled={lookupBusy} required />
+          </Field>
+          <Button type="submit" disabled={lookupBusy || !entryId}>
+            {lookupBusy ? t('corrections.lookingUp') : t('corrections.lookup')}
+          </Button>
         </form>
         {lookupError && (
-          <p role="alert" style={{ color: 'crimson' }}>
-            {lookupError}
-          </p>
+          <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{lookupError}</p>
         )}
 
         {entry && (
-          <form onSubmit={onEdit} style={{ marginTop: '1rem' }}>
-            <p>
-              <strong>{ENTRY_KIND_LABEL[entry.kind] ?? entry.kind}</strong> ({entry.id})
+          <form onSubmit={onEdit} className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-3">
+            <p className="text-sm">
+              <span className="font-semibold">{t(`entryKind.${entry.kind}`, entry.kind)}</span>{' '}
+              <span className="text-[var(--color-muted)]">({entry.id})</span>
             </p>
-            <table style={{ borderCollapse: 'collapse', marginBottom: '0.75rem' }}>
-              <thead>
-                <tr style={{ textAlign: 'left' }}>
-                  <th style={{ paddingRight: '1rem' }}>Account</th>
-                  <th>Amount (PKR)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {postingsDraft.map((p, i) => (
-                  <tr key={p.accountId}>
-                    <td style={{ paddingRight: '1rem' }}>{p.accountId}</td>
-                    <td>
-                      <input
-                        type="number"
-                        value={p.amount}
-                        onChange={(e) => {
-                          const next = [...postingsDraft]
-                          next[i] = { ...next[i]!, amount: e.target.value }
-                          setPostingsDraft(next)
-                        }}
-                        disabled={actionBusy}
-                        style={{ width: 140 }}
-                      />
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="text-start text-[var(--color-muted)]">
+                    <th className="py-1 text-start font-medium">{t('corrections.account')}</th>
+                    <th className="py-1 text-start font-medium">{t('corrections.amount')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <button type="submit" disabled={actionBusy}>
-              {actionBusy ? 'Saving…' : 'Save correction'}
-            </button>
-            <button type="button" onClick={onDelete} disabled={actionBusy} style={{ marginLeft: '0.5rem', color: '#a53434' }}>
-              Delete this entry
-            </button>
+                </thead>
+                <tbody>
+                  {postingsDraft.map((p, i) => (
+                    <tr key={p.accountId} className="border-b border-[var(--color-border)]">
+                      <td className="py-2 pe-3">{p.accountId}</td>
+                      <td className="py-2">
+                        <input
+                          type="number"
+                          className={cn(fieldClass, 'num')}
+                          value={p.amount}
+                          onChange={(e) => {
+                            const next = [...postingsDraft]
+                            next[i] = { ...next[i]!, amount: e.target.value }
+                            setPostingsDraft(next)
+                          }}
+                          disabled={actionBusy}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button type="submit" disabled={actionBusy}>
+                {actionBusy ? t('corrections.saving') : t('corrections.save')}
+              </Button>
+              <Button type="button" variant="outline" onClick={onDelete} disabled={actionBusy} style={{ color: 'var(--color-you-owe)' }}>
+                {t('corrections.delete')}
+              </Button>
+            </div>
             {actionError && (
-              <p role="alert" style={{ color: 'crimson' }}>
-                {actionError}
-              </p>
+              <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{actionError}</p>
             )}
             {actionResult && (
-              <p role="status" style={{ color: actionResult.warning ? '#a53434' : '#1e7a34' }}>
-                {actionResult.kind === 'edit' ? 'Correction saved.' : 'Entry deleted.'}
+              <p role="status" className="text-sm" style={{ color: actionResult.warning ? 'var(--color-you-owe)' : 'var(--color-rokar-fg)' }}>
+                {actionResult.kind === 'edit' ? t('corrections.savedResult') : t('corrections.deletedResult')}
                 {actionResult.warning && <> {actionResult.warning}</>}
               </p>
             )}
           </form>
         )}
-      </fieldset>
+      </Card>
 
-      <h2>Change history</h2>
-      {logLoading && <p>Loading…</p>}
-      {!logLoading && logError && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {logError}
-        </p>
-      )}
-      {!logLoading && !logError && log && log.length === 0 && <p>No corrections have been made yet.</p>}
-      {!logLoading && !logError && log && log.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-              <th>When</th>
-              <th>Entry</th>
-              <th>Action</th>
-              <th>Before</th>
-              <th>After</th>
-              <th>Actor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {log.map((row) => (
-              <tr key={row.id} style={{ borderBottom: '1px solid #eee', verticalAlign: 'top' }}>
-                <td style={{ whiteSpace: 'nowrap' }}>{new Date(row.timestamp).toLocaleString()}</td>
-                <td>{row.entryId}</td>
-                <td>{row.action}</td>
-                <td>{summarisePostings(row.before.postings)}</td>
-                <td>{row.after ? summarisePostings(row.after.postings) : '(deleted)'}</td>
-                <td>{row.actor}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </main>
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('corrections.historyTitle')}</h2>
+        {logLoading && <p role="status" className="py-8 text-center text-[var(--color-muted)]">{t('state.loading')}</p>}
+        {!logLoading && logError && (
+          <p role="alert" className="py-8 text-center" style={{ color: 'var(--color-you-owe)' }}>{logError}</p>
+        )}
+        {!logLoading && !logError && log && log.length === 0 && (
+          <p className="py-8 text-center text-[var(--color-muted)]">{t('corrections.empty')}</p>
+        )}
+        {!logLoading && !logError && log && log.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-start text-[var(--color-muted)]">
+                  <th className="py-1 text-start font-medium">{t('corrections.colWhen')}</th>
+                  <th className="py-1 text-start font-medium">{t('corrections.colEntry')}</th>
+                  <th className="py-1 text-start font-medium">{t('corrections.colAction')}</th>
+                  <th className="py-1 text-start font-medium">{t('corrections.colBefore')}</th>
+                  <th className="py-1 text-start font-medium">{t('corrections.colAfter')}</th>
+                  <th className="py-1 text-start font-medium">{t('corrections.colActor')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.map((row) => (
+                  <tr key={row.id} className="border-b border-[var(--color-border)] align-top">
+                    <td className="whitespace-nowrap py-2 pe-3">{new Date(row.timestamp).toLocaleString()}</td>
+                    <td className="py-2 pe-3">{row.entryId}</td>
+                    <td className="py-2 pe-3">{row.action}</td>
+                    <td className="num py-2 pe-3">{summarisePostings(row.before.postings)}</td>
+                    <td className="num py-2 pe-3">{row.after ? summarisePostings(row.after.postings) : t('corrections.deletedPostings')}</td>
+                    <td className="py-2">{row.actor}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <button type="button" onClick={() => navigate('/')} className="text-center text-sm text-[var(--color-accent)]">
+        ← {t('nav.dashboard')}
+      </button>
+    </div>
   )
 }
