@@ -225,6 +225,7 @@ export interface ContactRecord {
   id: string
   kind: ContactKind
   name?: string
+  phone?: string
   commissionRate?: number
   buyerCommissionRate?: number
   bagBearer?: CostBearer
@@ -299,6 +300,7 @@ export const api = {
     id: string
     kind: ContactKind
     name?: string
+    phone?: string
     commissionRate?: number
     buyerCommissionRate?: number
     bagBearer?: CostBearer
