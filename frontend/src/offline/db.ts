@@ -5,9 +5,10 @@
 // No runtime dependency — a thin promise wrapper over the platform IndexedDB.
 
 const DB_NAME = 'splitease-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 export const QUEUE_STORE = 'queue'
 export const CACHE_STORE = 'cache'
+export const DISCARDED_STORE = 'discarded'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -19,6 +20,9 @@ function openDB(): Promise<IDBDatabase> {
       const db = req.result
       if (!db.objectStoreNames.contains(QUEUE_STORE)) db.createObjectStore(QUEUE_STORE, { keyPath: 'seq', autoIncrement: true })
       if (!db.objectStoreNames.contains(CACHE_STORE)) db.createObjectStore(CACHE_STORE, { keyPath: 'key' })
+      // v2 (#61): items the user explicitly discarded, with a recorded reason —
+      // nothing is ever silently lost (ADR-0031).
+      if (!db.objectStoreNames.contains(DISCARDED_STORE)) db.createObjectStore(DISCARDED_STORE, { keyPath: 'seq' })
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)

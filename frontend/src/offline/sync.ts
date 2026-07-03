@@ -1,5 +1,5 @@
 import { api } from '../api'
-import { listQueued, dequeue, type QueuedOp } from './queue'
+import { listPending, listNeedsAttention, dequeue, markNeedsAttention, recordAttempt, type QueuedOp } from './queue'
 
 // Replays one queued safe write against the server. Every op carries the client
 // entryId as its idempotency key (ADR-0021), so replaying an op the server
@@ -31,29 +31,71 @@ async function dispatch(op: QueuedOp): Promise<void> {
   }
 }
 
-export interface SyncResult {
+// Two-class failure handling (ADR-0031):
+//  - transient: offline / network error / 5xx / an expired-token 401 (the 24h
+//    token of ADR-0025 will 401 a phone left offline overnight) → retry later.
+//    A 401 additionally needs a fresh login before the queue can resume.
+//  - terminal: a genuine 4xx validation rejection → park for the user (never
+//    retried forever, never dropped).
+export type FailureClass = 'transient' | 'auth' | 'terminal'
+
+function statusOf(err: unknown): number | undefined {
+  const m = /^(\d{3})\b/.exec(err instanceof Error ? err.message : String(err))
+  return m ? Number(m[1]) : undefined
+}
+
+export function classify(err: unknown): FailureClass {
+  const status = statusOf(err)
+  if (status === undefined) return 'transient' // network / offline — no HTTP status
+  if (status === 401) return 'auth' // expired token — re-login then resume
+  if (status >= 500) return 'transient'
+  if (status >= 400) return 'terminal' // genuine validation rejection
+  return 'transient'
+}
+
+export interface SyncOutcome {
   synced: number
-  remaining: number
+  remaining: number // still pending (transient / not yet reached)
+  needsAttention: number
+  authRequired: boolean // a 401 halted the flush; caller must prompt re-login
 }
 
 /**
- * Flush the queue FIFO (ADR-0031). Each op replays and is dequeued on success.
- * On the first failure we stop and leave the rest queued — they auto-retry on the
- * next reconnect / manual "sync now". The transient-vs-terminal classification and
- * the visible "needs attention" list are the next slice (#61).
+ * Flush the pending queue FIFO. Each op replays and is dequeued on success. On a
+ * transient failure we stop (the rest stay pending, retried on reconnect / a
+ * backoff tick / "sync now"). On an auth (401) we stop and flag authRequired. A
+ * terminal 4xx moves the op to the needs-attention list and we continue with the
+ * rest — nothing is silently lost.
  */
-export async function syncQueue(): Promise<SyncResult> {
-  const ops = await listQueued()
+export async function syncQueue(): Promise<SyncOutcome> {
+  const ops = await listPending()
   let synced = 0
+  let authRequired = false
   for (const op of ops) {
     try {
       await dispatch(op)
       await dequeue(op.seq!)
       synced++
-    } catch {
-      break
+    } catch (err) {
+      const cls = classify(err)
+      const message = err instanceof Error ? err.message : String(err)
+      if (cls === 'auth') {
+        await recordAttempt(op.seq!, message)
+        authRequired = true
+        break
+      }
+      if (cls === 'transient') {
+        await recordAttempt(op.seq!, message)
+        break
+      }
+      // terminal: park it and keep flushing the rest.
+      await markNeedsAttention(op.seq!, message)
     }
   }
-  const remaining = (await listQueued()).length
-  return { synced, remaining }
+  return {
+    synced,
+    remaining: (await listPending()).length,
+    needsAttention: (await listNeedsAttention()).length,
+    authRequired,
+  }
 }

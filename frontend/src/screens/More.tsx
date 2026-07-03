@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 // Issue #52 — the "More" tab: the long-tail and Owner-only screens that don't
 // earn a bottom-tab slot (ADR-0029). Restyled per-screen in later slices.
 const ITEMS = [
+  { to: '/sync', key: 'more.sync', owner: false },
   { to: '/bardana', key: 'more.bardana', owner: false },
   { to: '/cess', key: 'more.cess', owner: false },
   { to: '/godown', key: 'more.godown', owner: false },

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { enqueue, listQueued, pendingCount, type QueuedOp } from './queue'
+import { enqueue, listQueued, pendingCount, type NewOp } from './queue'
 import { cacheContacts, searchCachedContacts, cacheConfig, getCachedConfig } from './cache'
 import { syncQueue } from './sync'
 import { api, type ContactRecord, type ShopConfig } from '../api'
@@ -8,7 +8,7 @@ vi.mock('../api', () => ({
   api: { submitTrade: vi.fn(), lendBardana: vi.fn(), returnBardana: vi.fn() },
 }))
 
-const tradeOp = (id: string): Omit<QueuedOp, 'seq'> => ({
+const tradeOp = (id: string): NewOp => ({
   id,
   kind: 'trade',
   payload: { entryId: id, farmerId: 'f1', thekedarId: 't1', bags: [{ grossKg: 100 }], lines: [{ buyerId: 'b1', bagCount: 1, ratePerMaund: 2000 }] },
@@ -62,7 +62,7 @@ describe('offline sync replay (ADR-0031/0021)', () => {
     await enqueue(tradeOp('trade-b'))
 
     const result = await syncQueue()
-    expect(result).toEqual({ synced: 2, remaining: 0 })
+    expect(result).toMatchObject({ synced: 2, remaining: 0, needsAttention: 0, authRequired: false })
     expect(vi.mocked(api.submitTrade)).toHaveBeenCalledTimes(2)
     expect(await pendingCount()).toBe(0)
   })
