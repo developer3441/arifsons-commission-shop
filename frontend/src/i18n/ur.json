@@ -220,6 +220,30 @@
     "needBalance": "کم از کم ایک غیر صفر ابتدائی بقایا درج کریں۔",
     "error": "ابتدائی حساب درج نہ ہو سکا۔"
   },
+  "ledgers": {
+    "title": "کھاتے",
+    "noAccounts": "اس کھاتے میں ابھی کوئی اکاؤنٹ نہیں۔",
+    "noEntries": "اس اکاؤنٹ میں ابھی کوئی اندراج نہیں۔",
+    "gridError": "کھاتے لوڈ نہ ہو سکے۔",
+    "accountsError": "یہ کھاتہ لوڈ نہ ہو سکا۔",
+    "statementError": "یہ اکاؤنٹ لوڈ نہ ہو سکا۔",
+    "balance": "بقایا",
+    "entryHeader": "اندراج",
+    "amountHeader": "رقم",
+    "balanceHeader": "بقایا"
+  },
+  "entryKind": {
+    "opening_balance": "ابتدائی رقم",
+    "peshi_advance": "پیشگی",
+    "trade": "سودا",
+    "buyer_payment": "خریدار کی ادائیگی",
+    "farmer_withdrawal": "کاشتکار کی رقم",
+    "contractor_payout": "ٹھیکیدار کی ادائیگی",
+    "cess_remittance": "سیس کی ادائیگی",
+    "bardana_loan": "بردانہ دیا",
+    "bardana_resolution": "بردانہ واپس",
+    "stock_resale": "گودام فروخت"
+  },
   "money": { "owesYou": "آپ کے لینے ہیں", "youOwe": "آپ کے دینے ہیں", "settled": "برابر", "heldForGovt": "سرکار کے لیے" },
   "state": { "loading": "لوڈ ہو رہا ہے…", "error": "کوئی مسئلہ پیش آیا۔ دوبارہ کوشش کریں۔" },
   "common": { "logout": "لاگ آؤٹ", "language": "زبان", "english": "English", "urdu": "اردو", "backToDashboard": "ڈیش بورڈ پر واپس" }

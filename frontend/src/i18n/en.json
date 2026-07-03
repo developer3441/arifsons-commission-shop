@@ -220,6 +220,30 @@
     "needBalance": "Enter at least one non-zero opening balance.",
     "error": "Could not post the genesis entry."
   },
+  "ledgers": {
+    "title": "Ledgers",
+    "noAccounts": "No accounts yet in this ledger.",
+    "noEntries": "No entries have touched this account yet.",
+    "gridError": "Could not load the ledgers.",
+    "accountsError": "Could not load this ledger.",
+    "statementError": "Could not load this account.",
+    "balance": "Balance",
+    "entryHeader": "Entry",
+    "amountHeader": "Amount",
+    "balanceHeader": "Balance after"
+  },
+  "entryKind": {
+    "opening_balance": "Opening balance",
+    "peshi_advance": "Advance (Peshi)",
+    "trade": "Sale",
+    "buyer_payment": "Buyer payment",
+    "farmer_withdrawal": "Farmer withdrawal",
+    "contractor_payout": "Contractor payout",
+    "cess_remittance": "Cess remittance",
+    "bardana_loan": "Bardana lent",
+    "bardana_resolution": "Bardana resolved",
+    "stock_resale": "Godown resale"
+  },
   "money": { "owesYou": "owes you", "youOwe": "you owe", "settled": "settled", "heldForGovt": "held for govt" },
   "state": { "loading": "Loading…", "error": "Something went wrong. Try again in a moment." },
   "common": { "logout": "Log out", "language": "Language", "english": "English", "urdu": "اردو", "backToDashboard": "Back to Dashboard" }
