@@ -332,6 +332,17 @@ export const api = {
     lines: TradeLineInput[]
   }) => post<TradeResult>('/trades', input),
 
+  // Atomic single-submission (ADR-0032): the whole trade — farmer, each bag's
+  // gross weight, and the buyer lines — in one idempotent request. The server
+  // creates the lot + bags and assigns the lot number at submit time.
+  submitTrade: (input: {
+    entryId: string
+    farmerId: string
+    thekedarId: string
+    bags: { grossKg: number }[]
+    lines: TradeLineInput[]
+  }) => post<TradeResult>('/trades', input),
+
   listBardanaLoans: () => get<BardanaLoan[]>('/bardana'),
   lendBardana: (entryId: string, farmerId: string, bags: number, bagValue?: number) =>
     post<BardanaLoan>('/bardana/lend', { entryId, farmerId, bags, bagValue }),

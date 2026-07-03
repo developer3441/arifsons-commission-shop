@@ -73,6 +73,29 @@ export class Repository {
     return { wasNew: true }
   }
 
+  /**
+   * The stored response for a previously-submitted trade (ADR-0032/0021), or
+   * undefined if this entryId has never been submitted. Lets a resubmission
+   * (offline replay / dropped-response retry) return the *original* result —
+   * same lot number, same settlement — instead of recomputing from moved state.
+   */
+  async getTradeSubmission(entryId: string): Promise<unknown | undefined> {
+    const rows = await this.db
+      .select({ response: schema.tradeSubmissions.response })
+      .from(schema.tradeSubmissions)
+      .where(eq(schema.tradeSubmissions.entryId, entryId))
+      .limit(1)
+    return rows[0] ? JSON.parse(rows[0].response) : undefined
+  }
+
+  /** Persist a trade's response JSON for idempotent replay (ADR-0032). Insert-once. */
+  async saveTradeSubmission(entryId: string, response: unknown): Promise<void> {
+    await this.db
+      .insert(schema.tradeSubmissions)
+      .values({ entryId, response: JSON.stringify(response) })
+      .onConflictDoNothing()
+  }
+
   /** A ledger balance is the sum of every posting to that account (a projection). */
   async balanceOf(accountId: string): Promise<PKR> {
     const rows = await this.db
@@ -527,6 +550,16 @@ export class LotRepository {
   /** Record one weighed bag's gross kg against a lot. */
   async addBag(lotNumber: number, grossKg: number): Promise<void> {
     await this.db.insert(schema.lotBags).values({ lotNumber, grossKg })
+  }
+
+  /**
+   * Record all of a lot's weighed bags in one insert, in the given order (issue
+   * #54, ADR-0032) — the atomic-submission path weighs every bag up front rather
+   * than one round-trip each. No-op on an empty list.
+   */
+  async addBags(lotNumber: number, grossKgs: readonly number[]): Promise<void> {
+    if (grossKgs.length === 0) return
+    await this.db.insert(schema.lotBags).values(grossKgs.map((grossKg) => ({ lotNumber, grossKg })))
   }
 
   /** One lot with every bag weighed against it so far, in weighing order. */

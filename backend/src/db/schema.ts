@@ -160,6 +160,20 @@ export const postings = sqliteTable('postings', {
 })
 
 /**
+ * Idempotency snapshots for trade submissions (issue #54, ADR-0032/0021). A
+ * trade is one self-contained submission; the server assigns the lot number and
+ * settles proceeds at submit time, so a replayed submission (offline queue, a
+ * dropped-response retry) cannot recompute the *same* lot number / settlement
+ * from current state. We persist the original response JSON keyed by the client
+ * entryId and return it verbatim on any resubmission — the durable half of the
+ * recordEntry() no-op that already prevents double-posting.
+ */
+export const tradeSubmissions = sqliteTable('trade_submissions', {
+  entryId: text('entry_id').primaryKey(),
+  response: text('response').notNull(), // JSON of the trade response (ADR-0032)
+})
+
+/**
  * The append-only audit trail for corrections (ADR-0011): one row per
  * edit/delete, never rewritten. `before`/`after` are JSON-serialised Entry
  * snapshots; `after` is null for a delete. `actorUserId` is a plain id for

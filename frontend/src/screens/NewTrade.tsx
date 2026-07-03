@@ -1,301 +1,304 @@
-import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { api, type LotDetail, type TradeResult } from '../api'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Trash2 } from 'lucide-react'
+import { api, type ContactRecord, type ShopConfig, type TradeResult } from '../api'
 import { Bill } from './Bill'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { ContactPicker } from '../components/ContactPicker'
 
-// Issue #22 (front half) + issue #23/#24 (back half): the full New Trade
-// flow. Register a lot, weigh bags one at a time (running payable maunds
-// live), then split the lot across one or more buyers at their own rates
-// and save — that runs the trade engine, posts append-only, and shows the
-// Kacha bill / per-buyer Pakka invoices with the settlement cascade
-// breakdown.
-type LineDraft = { key: number; buyerId: string; bagCount: string; ratePerMaund: string }
+// Issue #54 (ADR-0032) — New Trade, rebuilt once against the atomic
+// single-submission contract: pick farmer → weigh bags (display-only payable
+// preview) → split across buyer lines (ContactPicker each) → contractor →
+// submit the WHOLE trade in one idempotent request. Mobile-first single column,
+// bilingual, tokens (ADR-0027/0029/0030). The server assigns the lot number and
+// recomputes the authoritative bill — the client preview is a nicety, not a
+// second engine (ADR-0018 intact).
+
+const KG_PER_MAUND = 40
+const houseBuyer = (name: string): ContactRecord => ({ id: 'house', kind: 'pakka', name, balance: 0 })
+
+type LineDraft = { key: number; buyer: ContactRecord | null; bagCount: string; ratePerMaund: string }
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-[var(--color-muted)]">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+const inputClass =
+  'min-h-11 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 num ' +
+  'focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] disabled:opacity-50'
 
 export function NewTrade() {
-  const [farmerId, setFarmerId] = useState('')
-  const [lot, setLot] = useState<LotDetail | null>(null)
-  const [grossKg, setGrossKg] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { t } = useTranslation()
+  const navigate = useNavigate()
 
-  const [thekedarId, setThekedarId] = useState('')
-  const [lines, setLines] = useState<LineDraft[]>([{ key: 0, buyerId: '', bagCount: '', ratePerMaund: '' }])
-  const [saleBusy, setSaleBusy] = useState(false)
-  const [saleError, setSaleError] = useState<string | null>(null)
+  const [config, setConfig] = useState<ShopConfig | null>(null)
+  const [farmer, setFarmer] = useState<ContactRecord | null>(null)
+  const [bags, setBags] = useState<number[]>([])
+  const [grossKg, setGrossKg] = useState('')
+  const [thekedar, setThekedar] = useState<ContactRecord | null>(null)
+  const [lines, setLines] = useState<LineDraft[]>([{ key: 0, buyer: null, bagCount: '', ratePerMaund: '' }])
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(false)
   const [result, setResult] = useState<TradeResult | null>(null)
 
-  function addLine() {
-    setLines((prev) => [
-      ...prev,
-      { key: (prev.at(-1)?.key ?? -1) + 1, buyerId: '', bagCount: '', ratePerMaund: '' },
-    ])
+  // Shop default Katt for the display-only preview; a farmer's own override
+  // wins when present (ADR-0003). Best-effort — the preview degrades to 0 Katt.
+  useEffect(() => {
+    api.getConfig().then(setConfig).catch(() => setConfig(null))
+  }, [])
+
+  const katt = farmer?.kattKgPerBag ?? config?.kattKgPerBag ?? 0
+  const payableKg = (g: number) => Math.max(0, g - katt)
+  const previewMaunds = bags.reduce((sum, g) => sum + payableKg(g), 0) / KG_PER_MAUND
+  const assignedBags = lines.reduce((sum, l) => sum + (Number(l.bagCount) || 0), 0)
+
+  function addBag(e: FormEvent) {
+    e.preventDefault()
+    const g = Number(grossKg)
+    if (!g || g <= 0) return
+    setBags((prev) => [...prev, g])
+    setGrossKg('')
   }
-  function updateLine(key: number, patch: Partial<LineDraft>) {
+  const removeBag = (i: number) => setBags((prev) => prev.filter((_, j) => j !== i))
+
+  const addLine = () =>
+    setLines((prev) => [...prev, { key: (prev.at(-1)?.key ?? -1) + 1, buyer: null, bagCount: '', ratePerMaund: '' }])
+  const updateLine = (key: number, patch: Partial<LineDraft>) =>
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
-  }
-  function removeLine(key: number) {
+  const removeLine = (key: number) =>
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev))
-  }
 
-  const totalLineBags = lines.reduce((sum, l) => sum + (Number(l.bagCount) || 0), 0)
+  const canSubmit =
+    !!farmer &&
+    bags.length > 0 &&
+    !!thekedar &&
+    assignedBags > 0 &&
+    assignedBags <= bags.length &&
+    lines.every((l) => l.buyer && Number(l.bagCount) > 0 && Number(l.ratePerMaund) > 0)
 
-  async function refreshLot(lotNumber: number) {
-    const updated = await api.getLot(lotNumber)
-    setLot(updated)
-  }
-
-  async function onCreateLot(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setBusy(true)
+  async function onSubmit() {
+    if (!canSubmit || !farmer || !thekedar) return
+    setSubmitError(false)
+    setSubmitting(true)
     try {
-      const created = await api.createLot(farmerId)
-      await refreshLot(created.lotNumber)
-    } catch {
-      setError('Could not register the lot. Check the farmer id.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function onWeighBag(e: FormEvent) {
-    e.preventDefault()
-    if (!lot) return
-    setError(null)
-    setBusy(true)
-    try {
-      const updated = await api.weighBag(lot.lotNumber, Number(grossKg))
-      setLot(updated)
-      setGrossKg('')
-    } catch {
-      setError('Could not record this bag.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function onSave(e: FormEvent) {
-    e.preventDefault()
-    if (!lot) return
-    setSaleError(null)
-    setSaleBusy(true)
-    try {
-      const entryId = `trade-${lot.lotNumber}-${Date.now()}`
-      const posted = await api.postTrade({
-        entryId,
-        lotNumber: lot.lotNumber,
-        thekedarId,
+      const posted = await api.submitTrade({
+        entryId: `trade-${farmer.id}-${Date.now()}`,
+        farmerId: farmer.id,
+        thekedarId: thekedar.id,
+        bags: bags.map((g) => ({ grossKg: g })),
         lines: lines.map((l) => ({
-          buyerId: l.buyerId,
+          buyerId: l.buyer!.id,
           bagCount: Number(l.bagCount),
           ratePerMaund: Number(l.ratePerMaund),
         })),
       })
       setResult(posted)
     } catch {
-      setSaleError('Could not save this trade. Check the buyer/contractor ids, bag counts, and rates.')
+      setSubmitError(true)
     } finally {
-      setSaleBusy(false)
+      setSubmitting(false)
     }
   }
 
+  if (result) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'var(--color-rokar-bg)', color: 'var(--color-rokar-fg)' }} role="status">
+          {t('trade.saved')} {t('trade.lotAssigned', { lotNumber: result.lotNumber })}
+        </div>
+        <Bill result={result} />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setResult(null)
+            setFarmer(null)
+            setBags([])
+            setThekedar(null)
+            setLines([{ key: 0, buyer: null, bagCount: '', ratePerMaund: '' }])
+          }}
+        >
+          {t('trade.newTrade')}
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/">&larr; Dashboard</Link>
-      </p>
-      <h1>New Trade</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold">{t('trade.title')}</h1>
 
-      {result ? (
-        <>
-          <p role="status" style={{ color: '#1e7a34' }}>
-            Trade saved.
-          </p>
-          <Bill result={result} />
-          <Link to="/">Back to Dashboard</Link>
-        </>
-      ) : (
-        <>
-          {!lot ? (
-            <form onSubmit={onCreateLot}>
-              <label style={{ display: 'block', margin: '0.75rem 0' }}>
-                Farmer id
-                <input
-                  style={{ display: 'block', width: '100%', maxWidth: 320 }}
-                  value={farmerId}
-                  onChange={(e) => setFarmerId(e.target.value)}
-                  disabled={busy}
-                  required
-                />
-              </label>
-              <button type="submit" disabled={busy || !farmerId}>
-                {busy ? 'Registering…' : 'Register lot'}
-              </button>
-            </form>
-          ) : (
-            <>
-              <p>
-                Lot #{lot.lotNumber} — {lot.farmerId} ({lot.businessDate}). Katt: {lot.kattKgPerBag} kg/bag.
-              </p>
+      {/* Step 1 — farmer */}
+      <Card className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('trade.steps.farmer')}</h2>
+        <ContactPicker kind="zamindar" value={farmer} onSelect={setFarmer} disabled={submitting} />
+      </Card>
 
-              <form onSubmit={onWeighBag} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', margin: '1rem 0' }}>
-                <label>
-                  Bag gross kg
+      {!farmer && <p className="text-center text-sm text-[var(--color-muted)]">{t('trade.needFarmer')}</p>}
+
+      {farmer && (
+        <>
+          {/* Step 2 — weigh bags */}
+          <Card className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('trade.steps.bags')}</h2>
+            <form onSubmit={addBag} className="flex items-end gap-2">
+              <div className="flex-1">
+                <Field label={t('trade.grossKg')}>
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.01"
+                    inputMode="decimal"
                     value={grossKg}
                     onChange={(e) => setGrossKg(e.target.value)}
-                    disabled={busy}
-                    required
-                    style={{ display: 'block', width: 160 }}
+                    disabled={submitting}
+                    className={inputClass}
                   />
-                </label>
-                <button type="submit" disabled={busy || !grossKg}>
-                  {busy ? 'Weighing…' : 'Weigh bag'}
-                </button>
-              </form>
-
-              <div style={{ background: '#f5f5f5', borderRadius: 10, padding: '1rem', margin: '1rem 0' }}>
-                <div style={{ fontSize: '0.85rem', color: '#666' }}>Running payable weight</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{lot.payableMaunds.toFixed(2)} maund</div>
-                <div style={{ color: '#666' }}>{lot.bags.length} bag(s) weighed</div>
+                </Field>
               </div>
+              <Button type="submit" variant="outline" disabled={submitting || !grossKg} className="shrink-0">
+                {t('trade.addBag')}
+              </Button>
+            </form>
 
-              {lot.bags.length > 0 && (
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.5rem' }}>
-                  <thead>
-                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-                      <th>#</th>
-                      <th>Gross kg</th>
-                      <th>Payable kg</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lot.bags.map((bag, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                        <td>{i + 1}</td>
-                        <td>{bag.grossKg}</td>
-                        <td>
-                          {bag.payableKg}
-                          {bag.payableKg === 0 && (
-                            <span style={{ color: '#a53434', marginLeft: '0.5rem' }}>
-                              ⚠ light/wet — clamped at 0, still counts for bag charges
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: 'var(--color-surface)' }}
+            >
+              <div className="text-xs text-[var(--color-muted)]">{t('trade.payablePreview')}</div>
+              <div className="num text-2xl font-bold">
+                {previewMaunds.toFixed(2)} <span className="text-base font-normal">{t('trade.maund')}</span>
+              </div>
+              <div className="text-xs text-[var(--color-muted)]">{t('trade.bagsWeighed', { count: bags.length })}</div>
+              <div className="mt-1 text-xs text-[var(--color-muted)]">{t('trade.previewNote')}</div>
+            </div>
+
+            {bags.length > 0 && (
+              <ul className="flex flex-col gap-1">
+                {bags.map((g, i) => (
+                  <li key={i} className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] py-1 text-sm">
+                    <span className="num">
+                      #{i + 1} · {g} kg → {payableKg(g)} kg
+                      {payableKg(g) === 0 && (
+                        <span className="ms-2 text-xs" style={{ color: 'var(--color-you-owe)' }}>
+                          ⚠ {t('trade.lightBag')}
+                        </span>
+                      )}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="md"
+                      aria-label={t('trade.removeBag')}
+                      onClick={() => removeBag(i)}
+                      disabled={submitting}
+                      className="h-9 px-2"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          {/* Step 3 — buyers */}
+          {bags.length > 0 && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('trade.steps.buyers')}</h2>
+              <p className="num text-xs text-[var(--color-muted)]">
+                {t('trade.bagsAssigned', { assigned: assignedBags, total: bags.length })}
+              </p>
+
+              {lines.length === 1 && (
+                <div className="text-xs">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    disabled={submitting}
+                    onClick={() =>
+                      updateLine(lines[0]!.key, { buyer: houseBuyer(t('trade.sellToHouse')), bagCount: String(bags.length) })
+                    }
+                  >
+                    {t('trade.sellToHouse')}
+                  </Button>
+                  <p className="mt-1 text-[var(--color-muted)]">{t('trade.houseNote')}</p>
+                </div>
               )}
 
-              {lot.bags.length > 0 && (
-                <fieldset style={{ border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem' }}>
-                  <legend>Sell this lot</legend>
-                  <p style={{ color: '#666', fontSize: '0.85rem' }}>
-                    Split across one or more buyers — each line takes the next N bags (in weighing order).{' '}
-                    {totalLineBags} / {lot.bags.length} bags assigned.
-                  </p>
-                  {lines.length === 1 && (
-                    <p style={{ fontSize: '0.85rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => updateLine(lines[0]!.key, { buyerId: 'house', bagCount: String(lot.bags.length) })}
-                        disabled={saleBusy}
-                      >
-                        Sell to house (Beopari)
-                      </button>{' '}
-                      <span style={{ color: '#666' }}>— stock lands in the Godown at cost, no commission (ADR-0005).</span>
-                    </p>
-                  )}
-                  <form onSubmit={onSave}>
-                    <label style={{ display: 'block', margin: '0.5rem 0' }}>
-                      Contractor id (labour)
-                      <input
-                        style={{ display: 'block', width: '100%', maxWidth: 320 }}
-                        value={thekedarId}
-                        onChange={(e) => setThekedarId(e.target.value)}
-                        disabled={saleBusy}
-                        required
-                      />
-                    </label>
-
-                    {lines.map((line) => (
-                      <div key={line.key} style={{ display: 'flex', gap: '0.5rem', margin: '0.5rem 0', alignItems: 'flex-end' }}>
-                        <label>
-                          Buyer id
-                          <input
-                            style={{ display: 'block', width: 180 }}
-                            value={line.buyerId}
-                            onChange={(e) => updateLine(line.key, { buyerId: e.target.value })}
-                            disabled={saleBusy}
-                            required
-                          />
-                        </label>
-                        <label>
-                          Bags
-                          <input
-                            type="number"
-                            min={1}
-                            style={{ display: 'block', width: 90 }}
-                            value={line.bagCount}
-                            onChange={(e) => updateLine(line.key, { bagCount: e.target.value })}
-                            disabled={saleBusy}
-                            required
-                          />
-                        </label>
-                        <label>
-                          Rate/maund (PKR)
-                          <input
-                            type="number"
-                            style={{ display: 'block', width: 140 }}
-                            value={line.ratePerMaund}
-                            onChange={(e) => updateLine(line.key, { ratePerMaund: e.target.value })}
-                            disabled={saleBusy}
-                            required
-                          />
-                        </label>
-                        {lines.length > 1 && (
-                          <button type="button" onClick={() => removeLine(line.key)} disabled={saleBusy}>
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button type="button" onClick={addLine} disabled={saleBusy} style={{ marginBottom: '0.75rem' }}>
-                      + Split to another buyer
-                    </button>
-                    <div>
-                      <button
-                        type="submit"
-                        disabled={
-                          saleBusy ||
-                          !thekedarId ||
-                          lines.some((l) => !l.buyerId || !l.bagCount || !l.ratePerMaund)
-                        }
-                      >
-                        {saleBusy ? 'Saving…' : 'Save trade'}
-                      </button>
+              {lines.map((line) => (
+                <div key={line.key} className="flex flex-col gap-2 rounded-lg border border-[var(--color-border)] p-3">
+                  <ContactPicker kind="pakka" value={line.buyer} onSelect={(c) => updateLine(line.key, { buyer: c })} disabled={submitting} />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Field label={t('trade.bags')}>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={line.bagCount}
+                          onChange={(e) => updateLine(line.key, { bagCount: e.target.value })}
+                          disabled={submitting}
+                          className={inputClass}
+                        />
+                      </Field>
                     </div>
-                    {saleError && (
-                      <p role="alert" style={{ color: 'crimson' }}>
-                        {saleError}
-                      </p>
-                    )}
-                  </form>
-                </fieldset>
-              )}
-            </>
+                    <div className="flex-1">
+                      <Field label={t('trade.ratePerMaund')}>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={line.ratePerMaund}
+                          onChange={(e) => updateLine(line.key, { ratePerMaund: e.target.value })}
+                          disabled={submitting}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                  {lines.length > 1 && (
+                    <Button type="button" variant="ghost" size="md" onClick={() => removeLine(line.key)} disabled={submitting} className="self-start px-2 text-sm">
+                      {t('trade.remove')}
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button type="button" variant="outline" onClick={addLine} disabled={submitting} className="w-full">
+                {t('trade.addBuyer')}
+              </Button>
+            </Card>
+          )}
+
+          {/* Step 4 — contractor + submit */}
+          {bags.length > 0 && (
+            <Card className="flex flex-col gap-2">
+              <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('trade.steps.contractor')}</h2>
+              <ContactPicker kind="thekedar" value={thekedar} onSelect={setThekedar} disabled={submitting} />
+            </Card>
+          )}
+
+          <Button type="button" onClick={onSubmit} disabled={!canSubmit || submitting} className="w-full">
+            {submitting ? t('trade.submitting') : t('trade.submit')}
+          </Button>
+          {submitError && (
+            <p role="alert" className="text-center text-sm" style={{ color: 'var(--color-you-owe)' }}>
+              {t('trade.submitError')}
+            </p>
           )}
         </>
       )}
 
-      {error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
-        </p>
-      )}
-    </main>
+      <button type="button" onClick={() => navigate('/')} className="text-center text-sm text-[var(--color-accent)]">
+        ← {t('nav.dashboard')}
+      </button>
+    </div>
   )
 }
