@@ -1,171 +1,143 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { api, type BardanaLoan } from '../api'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { api, type BardanaLoan, type ContactRecord } from '../api'
 import { formatPkr } from '../money'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Field, fieldClass } from '../components/ui/field'
+import { ContactPicker } from '../components/ContactPicker'
+import { cn } from '../lib/utils'
 
-// Issue #21 — Bardana tracker: lend/return empty bags to a farmer. Bags-out
-// is a farmer receivable that counts toward True Shop Value (ADR-0010) via
-// the farmer's own ledger balance — see routes/bardana.ts for why this
-// screen's numbers aren't a second, separate asset line.
+// Issue #21 / #55 — Bardana tracker: lend/return empty bags to a farmer, chosen
+// with the shared ContactPicker (no raw-id box). Bags-out is a farmer receivable
+// that counts toward True Shop Value via the farmer's own ledger (ADR-0010).
+// Mobile-first, bilingual (ADR-0029/0030).
 export function Bardana() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
   const [loans, setLoans] = useState<BardanaLoan[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const [lendFarmerId, setLendFarmerId] = useState('')
+  const [lendFarmer, setLendFarmer] = useState<ContactRecord | null>(null)
   const [lendBags, setLendBags] = useState('')
   const [lendBagValue, setLendBagValue] = useState('')
   const [lendBusy, setLendBusy] = useState(false)
   const [lendError, setLendError] = useState<string | null>(null)
 
-  const [returnFarmerId, setReturnFarmerId] = useState('')
+  const [returnFarmer, setReturnFarmer] = useState<ContactRecord | null>(null)
   const [returnBags, setReturnBags] = useState('')
   const [returnBusy, setReturnBusy] = useState(false)
   const [returnError, setReturnError] = useState<string | null>(null)
 
   function reload() {
     setLoading(true)
-    setError(null)
-    api
-      .listBardanaLoans()
-      .then(setLoans)
-      .catch(() => setError('Could not load outstanding bardana loans.'))
-      .finally(() => setLoading(false))
+    setError(false)
+    api.listBardanaLoans().then(setLoans).catch(() => setError(true)).finally(() => setLoading(false))
   }
-
   useEffect(reload, [])
 
-  async function onLend(e: FormEvent) {
-    e.preventDefault()
+  async function onLend() {
+    if (!lendFarmer || !lendBags) return
     setLendError(null)
     setLendBusy(true)
     try {
-      const entryId = `bardana-lend-${lendFarmerId}-${Date.now()}`
-      await api.lendBardana(entryId, lendFarmerId, Number(lendBags), lendBagValue ? Number(lendBagValue) : undefined)
-      setLendFarmerId('')
+      await api.lendBardana(`bardana-lend-${lendFarmer.id}-${Date.now()}`, lendFarmer.id, Number(lendBags), lendBagValue ? Number(lendBagValue) : undefined)
+      setLendFarmer(null)
       setLendBags('')
       setLendBagValue('')
       reload()
     } catch {
-      setLendError('Could not lend bags. Check the farmer id and bag count.')
+      setLendError(t('bardana.lendError'))
     } finally {
       setLendBusy(false)
     }
   }
 
-  async function onReturn(e: FormEvent) {
-    e.preventDefault()
+  async function onReturn() {
+    if (!returnFarmer || !returnBags) return
     setReturnError(null)
     setReturnBusy(true)
     try {
-      const entryId = `bardana-return-${returnFarmerId}-${Date.now()}`
-      await api.returnBardana(entryId, returnFarmerId, Number(returnBags))
-      setReturnFarmerId('')
+      await api.returnBardana(`bardana-return-${returnFarmer.id}-${Date.now()}`, returnFarmer.id, Number(returnBags))
+      setReturnFarmer(null)
       setReturnBags('')
       reload()
     } catch (err) {
-      const message = err instanceof Error ? err.message : ''
-      if (message.includes('404')) {
-        setReturnError('This farmer has no outstanding bardana loan.')
-      } else if (message.includes('400')) {
-        setReturnError('Cannot return more bags than are outstanding.')
-      } else {
-        setReturnError('Could not record the return.')
-      }
+      const m = err instanceof Error ? err.message : ''
+      setReturnError(m.includes('404') ? t('bardana.noLoan') : m.includes('400') ? t('bardana.tooMany') : t('bardana.returnError'))
     } finally {
       setReturnBusy(false)
     }
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/">&larr; Dashboard</Link>
-      </p>
-      <h1>Bardana Tracker</h1>
-      <p style={{ color: '#666' }}>
-        Empty bags lent to farmers pre-season. Lending debits the farmer (an asset — they owe the bag
-        value back); returning bags credits them back.
-      </p>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold">{t('bardana.title')}</h1>
+      <p className="text-sm text-[var(--color-muted)]">{t('bardana.intro')}</p>
 
-      <fieldset style={{ margin: '1rem 0', border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem' }}>
-        <legend>Lend bags</legend>
-        <form onSubmit={onLend} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label>
-            Farmer id
-            <input value={lendFarmerId} onChange={(e) => setLendFarmerId(e.target.value)} disabled={lendBusy} required style={{ display: 'block' }} />
-          </label>
-          <label>
-            Bags
-            <input type="number" min={1} value={lendBags} onChange={(e) => setLendBags(e.target.value)} disabled={lendBusy} required style={{ display: 'block', width: 100 }} />
-          </label>
-          <label>
-            Bag value (optional — shop default if blank)
-            <input type="number" value={lendBagValue} onChange={(e) => setLendBagValue(e.target.value)} disabled={lendBusy} style={{ display: 'block', width: 160 }} />
-          </label>
-          <button type="submit" disabled={lendBusy || !lendFarmerId || !lendBags}>
-            {lendBusy ? 'Lending…' : 'Lend'}
-          </button>
-        </form>
-        {lendError && (
-          <p role="alert" style={{ color: 'crimson' }}>
-            {lendError}
-          </p>
+      <Card className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('bardana.lend')}</h2>
+        <ContactPicker kind="zamindar" value={lendFarmer} onSelect={setLendFarmer} disabled={lendBusy} />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Field label={t('bardana.bags')}>
+              <input type="number" min={1} inputMode="numeric" value={lendBags} onChange={(e) => setLendBags(e.target.value)} disabled={lendBusy} className={cn(fieldClass, 'num')} />
+            </Field>
+          </div>
+          <div className="flex-1">
+            <Field label={t('bardana.bagValue')}>
+              <input type="number" min={0} inputMode="numeric" value={lendBagValue} onChange={(e) => setLendBagValue(e.target.value)} disabled={lendBusy} className={cn(fieldClass, 'num')} />
+            </Field>
+          </div>
+        </div>
+        <Button type="button" onClick={onLend} disabled={lendBusy || !lendFarmer || !lendBags}>
+          {lendBusy ? t('bardana.lending') : t('bardana.lendAction')}
+        </Button>
+        {lendError && <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{lendError}</p>}
+      </Card>
+
+      <Card className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('bardana.returnBags')}</h2>
+        <ContactPicker kind="zamindar" value={returnFarmer} onSelect={setReturnFarmer} disabled={returnBusy} />
+        <Field label={t('bardana.bags')}>
+          <input type="number" min={1} inputMode="numeric" value={returnBags} onChange={(e) => setReturnBags(e.target.value)} disabled={returnBusy} className={cn(fieldClass, 'num')} />
+        </Field>
+        <Button type="button" onClick={onReturn} disabled={returnBusy || !returnFarmer || !returnBags}>
+          {returnBusy ? t('bardana.recording') : t('bardana.returnAction')}
+        </Button>
+        {returnError && <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{returnError}</p>}
+      </Card>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('bardana.outstanding')}</h2>
+        {loading && <p role="status" className="py-6 text-center text-[var(--color-muted)]">{t('state.loading')}</p>}
+        {!loading && error && <p role="alert" className="py-6 text-center" style={{ color: 'var(--color-you-owe)' }}>{t('bardana.listError')}</p>}
+        {!loading && !error && loans && loans.length === 0 && (
+          <p className="py-6 text-center text-[var(--color-muted)]">{t('bardana.none')}</p>
         )}
-      </fieldset>
-
-      <fieldset style={{ margin: '1rem 0', border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem' }}>
-        <legend>Return bags</legend>
-        <form onSubmit={onReturn} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label>
-            Farmer id
-            <input value={returnFarmerId} onChange={(e) => setReturnFarmerId(e.target.value)} disabled={returnBusy} required style={{ display: 'block' }} />
-          </label>
-          <label>
-            Bags
-            <input type="number" min={1} value={returnBags} onChange={(e) => setReturnBags(e.target.value)} disabled={returnBusy} required style={{ display: 'block', width: 100 }} />
-          </label>
-          <button type="submit" disabled={returnBusy || !returnFarmerId || !returnBags}>
-            {returnBusy ? 'Recording…' : 'Return'}
-          </button>
-        </form>
-        {returnError && (
-          <p role="alert" style={{ color: 'crimson' }}>
-            {returnError}
-          </p>
-        )}
-      </fieldset>
-
-      <h2 style={{ fontSize: '1rem', color: '#666' }}>Outstanding bags per farmer</h2>
-      {loading && <p>Loading…</p>}
-      {!loading && error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
-        </p>
-      )}
-      {!loading && !error && loans && loans.length === 0 && <p>No bardana currently outstanding.</p>}
-      {!loading && !error && loans && loans.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-              <th>Farmer</th>
-              <th>Bags out</th>
-              <th>Bag value</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
+        {!loading && !error && loans && loans.length > 0 && (
+          <div className="flex flex-col gap-2">
             {loans.map((l) => (
-              <tr key={l.farmerId} style={{ borderBottom: '1px solid #eee' }}>
-                <td>{l.farmerId}</td>
-                <td>{l.bagsOut}</td>
-                <td>{formatPkr(l.bagValue)}</td>
-                <td>{formatPkr(l.bagsOut * l.bagValue)}</td>
-              </tr>
+              <Card key={l.farmerId} className="flex items-center justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{l.farmerId}</span>
+                  <span className="num block text-sm text-[var(--color-muted)]">
+                    {l.bagsOut} {t('bardana.bagsOut')} · {formatPkr(l.bagValue)}
+                  </span>
+                </span>
+                <span className="num shrink-0 font-semibold">{formatPkr(l.bagsOut * l.bagValue)}</span>
+              </Card>
             ))}
-          </tbody>
-        </table>
-      )}
-    </main>
+          </div>
+        )}
+      </section>
+
+      <button type="button" onClick={() => navigate('/')} className="text-center text-sm text-[var(--color-accent)]">
+        ← {t('nav.dashboard')}
+      </button>
+    </div>
   )
 }
