@@ -1,13 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api, type CostBearer, type ShopConfig } from '../api'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Field, fieldClass } from '../components/ui/field'
+import { cn } from '../lib/utils'
 
-// Issue #18 — Owner-only Config screen: the global shop defaults that seed
-// the trade engine (ADR-0001/0003/0004/0012). Any authenticated user can
-// reach this route in principle, but the backend rejects a save from anyone
-// but an Owner (403) — this screen is only linked from the Dashboard for
-// Owners (App.tsx also gates the route itself).
+// Issue #18 / #57 — Owner-only Config: the global shop defaults that seed the
+// trade engine (ADR-0001/0003/0004/0012). The backend rejects a save from
+// anyone but an Owner (403). Mobile-first, bilingual, tokens (ADR-0029/0030).
 export function Config() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
   const [config, setConfigState] = useState<ShopConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -18,9 +23,9 @@ export function Config() {
     api
       .getConfig()
       .then(setConfigState)
-      .catch(() => setError('Could not load shop defaults.'))
+      .catch(() => setError(t('config.loadError')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -33,7 +38,7 @@ export function Config() {
       setConfigState(updated)
       setSaved(true)
     } catch {
-      setError('Could not save shop defaults. Only an Owner can change them.')
+      setError(t('config.saveError'))
     } finally {
       setSaving(false)
     }
@@ -41,119 +46,70 @@ export function Config() {
 
   function update<K extends keyof ShopConfig>(key: K, value: ShopConfig[K]) {
     setConfigState((c) => (c ? { ...c, [key]: value } : c))
+    setSaved(false)
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/">&larr; Dashboard</Link>
-      </p>
-      <h1>Shop Defaults</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold">{t('config.title')}</h1>
 
-      {loading && <p>Loading…</p>}
-      {!loading && error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
-        </p>
+      {loading && <p role="status" className="py-8 text-center text-[var(--color-muted)]">{t('state.loading')}</p>}
+      {!loading && error && !config && (
+        <p role="alert" className="py-8 text-center" style={{ color: 'var(--color-you-owe)' }}>{error}</p>
       )}
-      {!loading && !config && !error && <p>No configuration available.</p>}
+      {!loading && !config && !error && (
+        <p className="py-8 text-center text-[var(--color-muted)]">{t('config.empty')}</p>
+      )}
 
       {!loading && config && (
-        <form onSubmit={onSubmit}>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Farmer commission rate (e.g. 0.02 = 2%)
-            <input
-              type="number"
-              step="0.01"
-              value={config.farmerCommissionRate}
-              onChange={(e) => update('farmerCommissionRate', Number(e.target.value))}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            />
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Buyer commission rate
-            <input
-              type="number"
-              step="0.01"
-              value={config.buyerCommissionRate}
-              onChange={(e) => update('buyerCommissionRate', Number(e.target.value))}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            />
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Default Katt (kg/bag)
-            <input
-              type="number"
-              step="0.1"
-              value={config.kattKgPerBag}
-              onChange={(e) => update('kattKgPerBag', Number(e.target.value))}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            />
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Labour rate (PKR/bag)
-            <input
-              type="number"
-              value={config.perBagLabour}
-              onChange={(e) => update('perBagLabour', Number(e.target.value))}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            />
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Empty-bag (bardana) value (PKR/bag)
-            <input
-              type="number"
-              value={config.perBagCharge}
-              onChange={(e) => update('perBagCharge', Number(e.target.value))}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            />
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Default bag-cost bearer
-            <select
-              value={config.bagBearer}
-              onChange={(e) => update('bagBearer', e.target.value as CostBearer)}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            >
-              <option value="farmer">Farmer</option>
-              <option value="buyer">Buyer</option>
-            </select>
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Default labour-cost bearer
-            <select
-              value={config.labourBearer}
-              onChange={(e) => update('labourBearer', e.target.value as CostBearer)}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            >
-              <option value="farmer">Farmer</option>
-              <option value="buyer">Buyer</option>
-            </select>
-          </label>
-          <label style={{ display: 'block', margin: '0.75rem 0' }}>
-            Cess rate (flat, on sale value)
-            <input
-              type="number"
-              step="0.001"
-              value={config.cessRate}
-              onChange={(e) => update('cessRate', Number(e.target.value))}
-              style={{ display: 'block', width: '100%' }}
-              disabled={saving}
-            />
-          </label>
-          <button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save defaults'}
-          </button>
-          {saved && <span style={{ color: '#1e7a34', marginLeft: '0.75rem' }}>Saved.</span>}
-        </form>
+        <Card>
+          <form onSubmit={onSubmit} className="flex flex-col gap-3">
+            <Field label={t('config.farmerCommission')}>
+              <input type="number" step="0.01" className={cn(fieldClass, 'num')} value={config.farmerCommissionRate} onChange={(e) => update('farmerCommissionRate', Number(e.target.value))} disabled={saving} />
+            </Field>
+            <Field label={t('config.buyerCommission')}>
+              <input type="number" step="0.01" className={cn(fieldClass, 'num')} value={config.buyerCommissionRate} onChange={(e) => update('buyerCommissionRate', Number(e.target.value))} disabled={saving} />
+            </Field>
+            <Field label={t('config.katt')}>
+              <input type="number" step="0.1" className={cn(fieldClass, 'num')} value={config.kattKgPerBag} onChange={(e) => update('kattKgPerBag', Number(e.target.value))} disabled={saving} />
+            </Field>
+            <Field label={t('config.labour')}>
+              <input type="number" className={cn(fieldClass, 'num')} value={config.perBagLabour} onChange={(e) => update('perBagLabour', Number(e.target.value))} disabled={saving} />
+            </Field>
+            <Field label={t('config.bagCharge')}>
+              <input type="number" className={cn(fieldClass, 'num')} value={config.perBagCharge} onChange={(e) => update('perBagCharge', Number(e.target.value))} disabled={saving} />
+            </Field>
+            <Field label={t('config.bagBearer')}>
+              <select className={fieldClass} value={config.bagBearer} onChange={(e) => update('bagBearer', e.target.value as CostBearer)} disabled={saving}>
+                <option value="farmer">{t('config.bearerFarmer')}</option>
+                <option value="buyer">{t('config.bearerBuyer')}</option>
+              </select>
+            </Field>
+            <Field label={t('config.labourBearer')}>
+              <select className={fieldClass} value={config.labourBearer} onChange={(e) => update('labourBearer', e.target.value as CostBearer)} disabled={saving}>
+                <option value="farmer">{t('config.bearerFarmer')}</option>
+                <option value="buyer">{t('config.bearerBuyer')}</option>
+              </select>
+            </Field>
+            <Field label={t('config.cessRate')}>
+              <input type="number" step="0.001" className={cn(fieldClass, 'num')} value={config.cessRate} onChange={(e) => update('cessRate', Number(e.target.value))} disabled={saving} />
+            </Field>
+            <Button type="submit" disabled={saving}>
+              {saving ? t('config.saving') : t('config.save')}
+            </Button>
+            {error && (
+              <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{error}</p>
+            )}
+            {saved && (
+              <p role="status" className="text-sm" style={{ color: 'var(--color-rokar-fg)' }}>{t('config.saved')}</p>
+            )}
+          </form>
+        </Card>
       )}
-    </main>
+
+      <button type="button" onClick={() => navigate('/')} className="text-center text-sm text-[var(--color-accent)]">
+        ← {t('nav.dashboard')}
+      </button>
+    </div>
   )
 }

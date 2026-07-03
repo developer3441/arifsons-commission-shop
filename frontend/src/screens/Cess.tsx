@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api'
 import { formatPkr } from '../money'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 
-// Issue #25 — Cess / Government: the running cess-held liability (ADR-0004)
-// and an Owner-only "remit to government" action, guard-railed against
-// negative cash (ADR-0019).
+// Issue #25 / #57 — Cess / Government: the running cess-held liability
+// (ADR-0004) and an Owner-only "remit to government" action, guard-railed
+// against negative cash (ADR-0019). Mobile-first, bilingual (ADR-0029/0030).
 export function Cess() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [held, setHeld] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -22,10 +27,11 @@ export function Cess() {
     api
       .getCessHeld()
       .then((r) => setHeld(r.held))
-      .catch(() => setError('Could not load the cess balance.'))
+      .catch(() => setError(t('cess.loadError')))
       .finally(() => setLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reload, [])
 
   async function onRemit() {
@@ -39,11 +45,11 @@ export function Cess() {
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
       if (message.includes('Insufficient cash')) {
-        setRemitError('Not enough cash in Rokar to remit this cess — Rokar can never go negative.')
+        setRemitError(t('cess.insufficientCash'))
       } else if (message.includes('No cess is held')) {
-        setRemitError('There is no cess held right now.')
+        setRemitError(t('cess.noCess'))
       } else {
-        setRemitError('Could not remit cess.')
+        setRemitError(t('cess.remitError'))
       }
     } finally {
       setBusy(false)
@@ -51,46 +57,46 @@ export function Cess() {
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/">&larr; Dashboard</Link>
-      </p>
-      <h1>Cess / Government</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold">{t('cess.title')}</h1>
 
-      {loading && <p>Loading…</p>}
+      {loading && <p role="status" className="py-8 text-center text-[var(--color-muted)]">{t('state.loading')}</p>}
       {!loading && error && (
-        <p role="alert" style={{ color: 'crimson' }}>
-          {error}
-        </p>
+        <p role="alert" className="py-8 text-center" style={{ color: 'var(--color-you-owe)' }}>{error}</p>
       )}
       {!loading && !error && held !== null && (
         <>
-          <div style={{ background: '#f3ecfa', color: '#6a3fa0', borderRadius: 10, padding: '1rem', margin: '1rem 0' }}>
-            <div style={{ fontSize: '0.85rem' }}>Cess held for the government</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>{formatPkr(held)}</div>
-          </div>
+          <Card
+            className="border-0"
+            style={{ background: 'var(--color-government-bg)', color: 'var(--color-government-fg)' }}
+          >
+            <div className="text-sm opacity-90">{t('cess.held')}</div>
+            <div className="num mt-1 text-2xl font-bold">{formatPkr(held)}</div>
+          </Card>
 
           {user?.role === 'owner' ? (
-            <>
-              <button onClick={onRemit} disabled={busy || held === 0}>
-                {busy ? 'Remitting…' : 'Remit to government'}
-              </button>
+            <div className="flex flex-col gap-2">
+              <Button type="button" onClick={onRemit} disabled={busy || held === 0}>
+                {busy ? t('cess.remitting') : t('cess.remit')}
+              </Button>
               {remitted !== null && (
-                <p role="status" style={{ color: '#1e7a34' }}>
-                  Remitted {formatPkr(remitted)}.
+                <p role="status" className="text-sm" style={{ color: 'var(--color-rokar-fg)' }}>
+                  {t('cess.remitted', { amount: formatPkr(remitted) })}
                 </p>
               )}
               {remitError && (
-                <p role="alert" style={{ color: 'crimson' }}>
-                  {remitError}
-                </p>
+                <p role="alert" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>{remitError}</p>
               )}
-            </>
+            </div>
           ) : (
-            <p style={{ color: '#666' }}>Only an Owner can remit cess.</p>
+            <p className="text-sm text-[var(--color-muted)]">{t('cess.ownerOnly')}</p>
           )}
         </>
       )}
-    </main>
+
+      <button type="button" onClick={() => navigate('/')} className="text-center text-sm text-[var(--color-accent)]">
+        ← {t('nav.dashboard')}
+      </button>
+    </div>
   )
 }
