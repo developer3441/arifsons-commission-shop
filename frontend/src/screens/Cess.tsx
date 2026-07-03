@@ -6,6 +6,7 @@ import { api } from '../api'
 import { formatPkr } from '../money'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
+import { useOffline } from '../offline/OfflineContext'
 
 // Issue #25 / #57 — Cess / Government: the running cess-held liability
 // (ADR-0004) and an Owner-only "remit to government" action, guard-railed
@@ -14,6 +15,7 @@ export function Cess() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { online } = useOffline()
   const [held, setHeld] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -76,9 +78,14 @@ export function Cess() {
 
           {user?.role === 'owner' ? (
             <div className="flex flex-col gap-2">
-              <Button type="button" onClick={onRemit} disabled={busy || held === 0}>
+              <Button type="button" onClick={onRemit} disabled={busy || held === 0 || !online}>
                 {busy ? t('cess.remitting') : t('cess.remit')}
               </Button>
+              {!online && (
+                <p role="status" className="text-sm" style={{ color: 'var(--color-you-owe)' }}>
+                  {t('offline.needsConnection')}
+                </p>
+              )}
               {remitted !== null && (
                 <p role="status" className="text-sm" style={{ color: 'var(--color-rokar-fg)' }}>
                   {t('cess.remitted', { amount: formatPkr(remitted) })}

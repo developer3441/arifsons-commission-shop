@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api, type DashboardSnapshot, type LedgerBalance } from '../api'
 import { formatPkr, MoneyLabel } from '../money'
 import { Card } from '../components/ui/card'
+import { useOffline } from '../offline/OfflineContext'
 
 // Issue #52 — the reference Dashboard (ADR-0028). Two hero pillars (Cash in
 // Hand, True Shop Value — ADR-0010), the 7 ledgers as colour-coded cards, a
@@ -29,10 +30,13 @@ function LedgerCard({ ledger }: { ledger: LedgerBalance }) {
 
 export function Dashboard() {
   const { t } = useTranslation()
+  const { syncedAt } = useOffline()
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Re-fetch on mount and again after each successful queue flush (syncedAt bumps)
+  // so the balances reflect what just synced (ADR-0031).
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -45,7 +49,7 @@ export function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [syncedAt])
 
   if (loading)
     return (

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Search, X } from 'lucide-react'
 import { api, type ContactKind, type ContactRecord } from '../api'
 import { MoneyLabel } from '../money'
+import { useOffline } from '../offline/OfflineContext'
+import { searchCachedContacts } from '../offline/cache'
 import { Button } from './ui/button'
 import { cn } from '../lib/utils'
 
@@ -28,6 +30,7 @@ function SearchSheet({
   onPick: (c: ContactRecord) => void
 }) {
   const { t } = useTranslation()
+  const { online } = useOffline()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ContactRecord[] | null>(null)
   const [error, setError] = useState(false)
@@ -36,14 +39,14 @@ function SearchSheet({
     let cancelled = false
     setError(false)
     setResults(null)
-    api
-      .listContacts(kind, query || undefined)
-      .then((r) => !cancelled && setResults(r))
-      .catch(() => !cancelled && setError(true))
+    // Offline, search the cached contact list (ADR-0031) so New Trade composes
+    // with no signal; online, hit the live endpoint.
+    const load = online ? api.listContacts(kind, query || undefined) : searchCachedContacts(kind, query || undefined)
+    load.then((r) => !cancelled && setResults(r)).catch(() => !cancelled && setError(true))
     return () => {
       cancelled = true
     }
-  }, [kind, query])
+  }, [kind, query, online])
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-bg)]" role="dialog" aria-modal="true">

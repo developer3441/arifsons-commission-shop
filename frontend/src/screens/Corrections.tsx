@@ -6,7 +6,14 @@ import { formatPkr } from '../money'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Field, fieldClass } from '../components/ui/field'
+import { useOffline } from '../offline/OfflineContext'
 import { cn } from '../lib/utils'
+
+// A cash correction touches the Rokar ledger, so it depends on the current cash
+// balance (ADR-0019) and can't be safely composed offline; a non-cash one can
+// queue (ADR-0031).
+const ROKAR_ID = 'rokar'
+const touchesCash = (postings: { accountId: string }[]) => postings.some((p) => p.accountId === ROKAR_ID)
 
 // Issue #30 / #57 — Corrections & audit log (ADR-0011, clarified; ADR-0021).
 // An edit/delete never rewrites a posting: it appends a reversal (and, for an
@@ -21,6 +28,8 @@ function summarisePostings(postings: { accountId: string; amount: number }[]): s
 export function Corrections() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { online, enqueueWrite } = useOffline()
+  const [queuedMsg, setQueuedMsg] = useState(false)
   const [log, setLog] = useState<ChangeLogRow[] | null>(null)
   const [logLoading, setLogLoading] = useState(true)
   const [logError, setLogError] = useState<string | null>(null)
@@ -69,11 +78,31 @@ export function Corrections() {
     e.preventDefault()
     if (!entry) return
     setActionError(null)
+    setQueuedMsg(false)
     setActionBusy(true)
     try {
       const stamp = Date.now()
       const postings = postingsDraft.map((p) => ({ accountId: p.accountId, amount: Number(p.amount) }))
-      const result = await api.editEntry(entry.id, `${entry.id}-rev-${stamp}`, `${entry.id}-corrected-${stamp}`, postings)
+      const reversalEntryId = `${entry.id}-rev-${stamp}`
+      const correctedEntryId = `${entry.id}-corrected-${stamp}`
+      if (!online) {
+        // Only a non-cash correction may queue offline (ADR-0031). A cash one
+        // needs the live Rokar balance and is blocked with a clear message.
+        if (touchesCash(entry.postings) || touchesCash(postings)) {
+          setActionError(t('offline.needsConnection'))
+          return
+        }
+        await enqueueWrite({
+          id: reversalEntryId,
+          kind: 'correction',
+          payload: { action: 'edit', entryId: entry.id, reversalEntryId, correctedEntryId, postings },
+          summary: `${t('corrections.save')} · ${entry.id}`,
+          createdAt: Date.now(),
+        })
+        setQueuedMsg(true)
+        return
+      }
+      const result = await api.editEntry(entry.id, reversalEntryId, correctedEntryId, postings)
       setActionResult({ kind: 'edit', warning: result.warning })
       reloadLog()
     } catch (err) {
@@ -87,10 +116,29 @@ export function Corrections() {
   async function onDelete() {
     if (!entry) return
     setActionError(null)
+    setQueuedMsg(false)
     setActionBusy(true)
     try {
       const stamp = Date.now()
-      const result = await api.deleteEntry(entry.id, `${entry.id}-rev-${stamp}`)
+      const reversalEntryId = `${entry.id}-rev-${stamp}`
+      if (!online) {
+        if (touchesCash(entry.postings)) {
+          setActionError(t('offline.needsConnection'))
+          return
+        }
+        await enqueueWrite({
+          id: reversalEntryId,
+          kind: 'correction',
+          payload: { action: 'delete', entryId: entry.id, reversalEntryId },
+          summary: `${t('corrections.delete')} · ${entry.id}`,
+          createdAt: Date.now(),
+        })
+        setQueuedMsg(true)
+        setEntry(null)
+        setEntryId('')
+        return
+      }
+      const result = await api.deleteEntry(entry.id, reversalEntryId)
       setActionResult({ kind: 'delete', warning: result.warning })
       setEntry(null)
       setEntryId('')
@@ -107,6 +155,11 @@ export function Corrections() {
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">{t('corrections.title')}</h1>
       <p className="text-sm text-[var(--color-muted)]">{t('corrections.intro')}</p>
+      {queuedMsg && (
+        <p role="status" className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--color-thekedar-bg)', color: 'var(--color-thekedar-fg)' }}>
+          {t('offline.queued')}
+        </p>
+      )}
 
       <Card className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('corrections.lookupTitle')}</h2>

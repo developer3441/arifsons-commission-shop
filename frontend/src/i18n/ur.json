@@ -361,6 +361,17 @@
     "colActor": "کس نے",
     "deletedPostings": "(حذف شدہ)"
   },
+  "offline": {
+    "offline": "آف لائن",
+    "syncing": "سنک ہو رہا ہے…",
+    "synced": "سنک شدہ",
+    "pending": "{{count}} زیرِ التوا",
+    "syncNow": "ابھی سنک کریں",
+    "queued": "محفوظ — کنکشن آنے پر سنک ہو گا۔",
+    "pendingBadge": "سنک باقی",
+    "asOfLastSync": "آخری سنک کے مطابق",
+    "needsConnection": "اس کام کے لیے لائیو کنکشن چاہیے — آف لائن ممکن نہیں۔"
+  },
   "money": { "owesYou": "آپ کے لینے ہیں", "youOwe": "آپ کے دینے ہیں", "settled": "برابر", "heldForGovt": "سرکار کے لیے" },
   "state": { "loading": "لوڈ ہو رہا ہے…", "error": "کوئی مسئلہ پیش آیا۔ دوبارہ کوشش کریں۔" },
   "common": { "logout": "لاگ آؤٹ", "language": "زبان", "english": "English", "urdu": "اردو", "backToDashboard": "ڈیش بورڈ پر واپس" }

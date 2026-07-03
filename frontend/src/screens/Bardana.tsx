@@ -7,6 +7,7 @@ import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Field, fieldClass } from '../components/ui/field'
 import { ContactPicker } from '../components/ContactPicker'
+import { useOffline } from '../offline/OfflineContext'
 import { cn } from '../lib/utils'
 
 // Issue #21 / #55 — Bardana tracker: lend/return empty bags to a farmer, chosen
@@ -16,10 +17,12 @@ import { cn } from '../lib/utils'
 export function Bardana() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { online, enqueueWrite } = useOffline()
 
   const [loans, setLoans] = useState<BardanaLoan[] | null>(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [queuedMsg, setQueuedMsg] = useState(false)
 
   const [lendFarmer, setLendFarmer] = useState<ContactRecord | null>(null)
   const [lendBags, setLendBags] = useState('')
@@ -42,13 +45,28 @@ export function Bardana() {
   async function onLend() {
     if (!lendFarmer || !lendBags) return
     setLendError(null)
+    setQueuedMsg(false)
     setLendBusy(true)
+    const entryId = `bardana-lend-${lendFarmer.id}-${Date.now()}`
+    const bagValue = lendBagValue ? Number(lendBagValue) : undefined
     try {
-      await api.lendBardana(`bardana-lend-${lendFarmer.id}-${Date.now()}`, lendFarmer.id, Number(lendBags), lendBagValue ? Number(lendBagValue) : undefined)
+      if (!online) {
+        // Bardana is a safe write — queue it offline (ADR-0031).
+        await enqueueWrite({
+          id: entryId,
+          kind: 'bardana-lend',
+          payload: { entryId, farmerId: lendFarmer.id, bags: Number(lendBags), bagValue },
+          summary: `${t('bardana.lend')} · ${lendFarmer.name ?? lendFarmer.id}`,
+          createdAt: Date.now(),
+        })
+        setQueuedMsg(true)
+      } else {
+        await api.lendBardana(entryId, lendFarmer.id, Number(lendBags), bagValue)
+        reload()
+      }
       setLendFarmer(null)
       setLendBags('')
       setLendBagValue('')
-      reload()
     } catch {
       setLendError(t('bardana.lendError'))
     } finally {
@@ -59,12 +77,27 @@ export function Bardana() {
   async function onReturn() {
     if (!returnFarmer || !returnBags) return
     setReturnError(null)
+    setQueuedMsg(false)
     setReturnBusy(true)
+    const entryId = `bardana-return-${returnFarmer.id}-${Date.now()}`
     try {
-      await api.returnBardana(`bardana-return-${returnFarmer.id}-${Date.now()}`, returnFarmer.id, Number(returnBags))
-      setReturnFarmer(null)
-      setReturnBags('')
-      reload()
+      if (!online) {
+        await enqueueWrite({
+          id: entryId,
+          kind: 'bardana-return',
+          payload: { entryId, farmerId: returnFarmer.id, bags: Number(returnBags) },
+          summary: `${t('bardana.returnBags')} · ${returnFarmer.name ?? returnFarmer.id}`,
+          createdAt: Date.now(),
+        })
+        setQueuedMsg(true)
+        setReturnFarmer(null)
+        setReturnBags('')
+      } else {
+        await api.returnBardana(entryId, returnFarmer.id, Number(returnBags))
+        setReturnFarmer(null)
+        setReturnBags('')
+        reload()
+      }
     } catch (err) {
       const m = err instanceof Error ? err.message : ''
       setReturnError(m.includes('404') ? t('bardana.noLoan') : m.includes('400') ? t('bardana.tooMany') : t('bardana.returnError'))
@@ -77,6 +110,11 @@ export function Bardana() {
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">{t('bardana.title')}</h1>
       <p className="text-sm text-[var(--color-muted)]">{t('bardana.intro')}</p>
+      {queuedMsg && (
+        <p role="status" className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--color-thekedar-bg)', color: 'var(--color-thekedar-fg)' }}>
+          {t('offline.queued')}
+        </p>
+      )}
 
       <Card className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('bardana.lend')}</h2>

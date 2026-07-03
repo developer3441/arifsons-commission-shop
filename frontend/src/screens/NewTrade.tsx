@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import { api, type ContactRecord, type ShopConfig, type TradeResult } from '../api'
+import { formatPkr } from '../money'
 import { Bill } from './Bill'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { ContactPicker } from '../components/ContactPicker'
+import { useOffline } from '../offline/OfflineContext'
+import { getCachedConfig } from '../offline/cache'
 
 // Issue #54 (ADR-0032) — New Trade, rebuilt once against the atomic
 // single-submission contract: pick farmer → weigh bags (display-only payable
@@ -37,6 +40,7 @@ const inputClass =
 export function NewTrade() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { online, enqueueWrite } = useOffline()
 
   const [config, setConfig] = useState<ShopConfig | null>(null)
   const [farmer, setFarmer] = useState<ContactRecord | null>(null)
@@ -47,11 +51,16 @@ export function NewTrade() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(false)
   const [result, setResult] = useState<TradeResult | null>(null)
+  const [queued, setQueued] = useState(false)
 
-  // Shop default Katt for the display-only preview; a farmer's own override
-  // wins when present (ADR-0003). Best-effort — the preview degrades to 0 Katt.
+  // Shop default Katt for the display-only preview; a farmer's own override wins
+  // when present (ADR-0003). Falls back to the offline cache so the preview works
+  // with no signal (ADR-0031); degrades to 0 Katt as a last resort.
   useEffect(() => {
-    api.getConfig().then(setConfig).catch(() => setConfig(null))
+    api
+      .getConfig()
+      .then(setConfig)
+      .catch(() => getCachedConfig().then((c) => c && setConfig(c)).catch(() => setConfig(null)))
   }, [])
 
   const katt = farmer?.kattKgPerBag ?? config?.kattKgPerBag ?? 0
@@ -87,24 +96,59 @@ export function NewTrade() {
     if (!canSubmit || !farmer || !thekedar) return
     setSubmitError(false)
     setSubmitting(true)
+    const payload = {
+      entryId: `trade-${farmer.id}-${Date.now()}`,
+      farmerId: farmer.id,
+      thekedarId: thekedar.id,
+      bags: bags.map((g) => ({ grossKg: g })),
+      lines: lines.map((l) => ({
+        buyerId: l.buyer!.id,
+        bagCount: Number(l.bagCount),
+        ratePerMaund: Number(l.ratePerMaund),
+      })),
+    }
     try {
-      const posted = await api.submitTrade({
-        entryId: `trade-${farmer.id}-${Date.now()}`,
-        farmerId: farmer.id,
-        thekedarId: thekedar.id,
-        bags: bags.map((g) => ({ grossKg: g })),
-        lines: lines.map((l) => ({
-          buyerId: l.buyer!.id,
-          bagCount: Number(l.bagCount),
-          ratePerMaund: Number(l.ratePerMaund),
-        })),
-      })
-      setResult(posted)
+      if (!online) {
+        // Offline: capture the whole trade in the durable queue (ADR-0031/0032);
+        // it auto-syncs on reconnect and the idempotency key stops a double-post.
+        await enqueueWrite({
+          id: payload.entryId,
+          kind: 'trade',
+          payload,
+          summary: `${t('trade.title')} · ${farmer.name ?? farmer.id}`,
+          createdAt: Date.now(),
+        })
+        setQueued(true)
+      } else {
+        setResult(await api.submitTrade(payload))
+      }
     } catch {
       setSubmitError(true)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function reset() {
+    setResult(null)
+    setQueued(false)
+    setFarmer(null)
+    setBags([])
+    setThekedar(null)
+    setLines([{ key: 0, buyer: null, bagCount: '', ratePerMaund: '' }])
+  }
+
+  // Per-line preview sale value (display-only Katt arithmetic, ADR-0032): each
+  // line takes the next `bagCount` bags in weighing order, same as the server.
+  function linePreviews() {
+    let cursor = 0
+    return lines.map((l) => {
+      const n = Number(l.bagCount) || 0
+      const slice = bags.slice(cursor, cursor + n)
+      cursor += n
+      const maunds = slice.reduce((s, g) => s + payableKg(g), 0) / KG_PER_MAUND
+      return { line: l, saleValue: Math.round(maunds * (Number(l.ratePerMaund) || 0)) }
+    })
   }
 
   if (result) {
@@ -114,17 +158,42 @@ export function NewTrade() {
           {t('trade.saved')} {t('trade.lotAssigned', { lotNumber: result.lotNumber })}
         </div>
         <Bill result={result} />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setResult(null)
-            setFarmer(null)
-            setBags([])
-            setThekedar(null)
-            setLines([{ key: 0, buyer: null, bagCount: '', ratePerMaund: '' }])
-          }}
-        >
+        <Button type="button" variant="outline" onClick={reset}>
+          {t('trade.newTrade')}
+        </Button>
+      </div>
+    )
+  }
+
+  // Offline: a provisional Kacha bill — exact line items (from the display-only
+  // Katt preview) with the net/settlement/balances marked "as of last sync",
+  // plus a pending-sync badge (ADR-0031). The server recomputes on sync.
+  if (queued) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'var(--color-thekedar-bg)', color: 'var(--color-thekedar-fg)' }} role="status">
+          {t('offline.queued')}
+        </div>
+        <Card className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--color-muted)]">{t('bill.kacha')}</h2>
+            <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-muted)]">
+              {t('offline.pendingBadge')}
+            </span>
+          </div>
+          {linePreviews().map(({ line, saleValue }, i) => (
+            <div key={line.key} className="flex items-center justify-between border-b border-[var(--color-border)] py-1 text-sm">
+              <span className="truncate">{line.buyer?.name ?? line.buyer?.id}</span>
+              <span className="num">
+                {line.bagCount} × {line.ratePerMaund} = {formatPkr(saleValue)}
+              </span>
+            </div>
+          ))}
+          <p className="text-xs text-[var(--color-muted)]">
+            {t('bill.net')} / {t('bill.settlement')} — {t('offline.asOfLastSync')}
+          </p>
+        </Card>
+        <Button type="button" variant="outline" onClick={reset}>
           {t('trade.newTrade')}
         </Button>
       </div>
