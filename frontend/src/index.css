@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+/* Design tokens (ADR-0027) — the SSOT for colour/type values. The 7-ledger
+   colour mapping lives here (design.md: values in the config, mapping fixed). */
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-fg: #0f172a; /* slate-900 — high contrast for mandi sunlight (ADR-0029) */
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+
+  --color-accent: #0f766e; /* teal — not green (ledgers own green) */
+  --color-accent-fg: #ffffff;
+
+  /* Money direction (design.md: colour + label, never a bare sign) */
+  --color-owed-to-you: #15803d;
+  --color-you-owe: #b91c1c;
+
+  /* The 7 ledgers — fixed mapping (ADR-0004) */
+  --color-rokar-bg: #e6f4ea;
+  --color-rokar-fg: #1e7a34;
+  --color-zamindar-bg: #fff4e5;
+  --color-zamindar-fg: #946200;
+  --color-beopari-bg: #eef1ff;
+  --color-beopari-fg: #3949ab;
+  --color-thekedar-bg: #fdeaea;
+  --color-thekedar-fg: #a53434;
+  --color-pakka-bg: #e6f0fb;
+  --color-pakka-fg: #1a5ca8;
+  --color-revenue-bg: #e9f7f0;
+  --color-revenue-fg: #1c7d5a;
+  --color-government-bg: #f3ecfa;
+  --color-government-fg: #6a3fa0;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-urdu: 'Noto Nastaliq Urdu', serif;
+}
+
+html {
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Urdu mode: Nastaliq is tall/calligraphic (ADR-0030) — bump base size and
+   line-height so it doesn't clip; dense rows get extra vertical room. */
+html[lang='ur'] {
+  font-family: var(--font-urdu);
+  font-size: 1.12rem;
+  line-height: 2.1;
+}
+
+/* Western digits always (ADR-0030): money/weight render in a Latin font span
+   so they stay crisp inside Nastaliq text and never change shape on toggle. */
+.num {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Visible focus ring everywhere (design.md a11y) */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
